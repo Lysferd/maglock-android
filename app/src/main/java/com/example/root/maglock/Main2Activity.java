@@ -15,6 +15,7 @@ import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.os.Build;
 import android.os.IBinder;
@@ -39,7 +40,7 @@ import java.util.List;
 import static com.example.root.maglock.SearchActivity.hasMyService;
 
 public class Main2Activity extends AppCompatActivity {
-    private String TAG = "MAGLOCK."+SearchActivity.class.getSimpleName();
+    private String TAG = "MAGLOCK."+Main2Activity.class.getSimpleName();
     private static final int PERMISSION_REQUEST_FINE_LOCATION = 400;
 
     private ScanCallback mScanCallback;
@@ -92,28 +93,98 @@ public class Main2Activity extends AppCompatActivity {
                 int position = mAdapter.getPosition(address);
                 mAdapter.setConnection(position, true);
                 mAdapter.notifyDataSetChanged();
+                stopScanning();
             }
             if (BluetoothLeService.ACTION_GATT_DISCONNECTED.equals(action)) {
+                Log.d(TAG, "ACTION_GATT_DISCONNECTED");
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
                 String address = device.getAddress();
                 int position = mAdapter.getPosition(address);
                 mAdapter.setConnection(position, false);
                 mAdapter.notifyDataSetChanged();
+                mBluetoothLeService.connect(address);
             }
             if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
+                Log.d(TAG, "ACTION_GATT_SERVICES_DISCOVERED");
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
                 String address = device.getAddress();
                 int position = mAdapter.getPosition(address);
                 getGattServices(mBluetoothLeService.getSupportedGattServices(address), position);
                 mBluetoothLeService.setNotify(address, mAdapter.getItem(position, gridItemAdapter.CONTACT));
+                startScanning();
             }
             if (BluetoothLeService.ACTION_DESCRIPTOR_WRITE.equals(action)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
+                int type = intent.getIntExtra(BluetoothLeService.CHARACTERISTIC_TYPE, 0);
+                if (type == 0) {
+                    Log.d(TAG, "Unknown characteristic type");
+                    return;
+                }
                 String address = device.getAddress();
                 int position = mAdapter.getPosition(address);
+
+                switch (type) {
+                    case (BluetoothLeService.CONTACT):
+
+                        Log.d(TAG, "Contact descriptor notify called, proceeding to start notify from Strike");
+                        BluetoothGattCharacteristic characteristic = mAdapter.getItem(position, gridItemAdapter.STRIKE);
+                        mBluetoothLeService.setNotify(address, characteristic);
+                        break;
+                    case (BluetoothLeService.STRIKE):
+                        Log.d(TAG, "Strike descriptor notify called, nothing else to be done");
+                        mBluetoothLeService.readCharacteristic(mAdapter.getItem(position, gridItemAdapter.STRIKE), address);
+
+                        break;
+                }
+            }
+            if (BluetoothLeService.ACTION_DATA_AVAILABLE.equals(action)) {
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
+                String address = device.getAddress();
+                int position = mAdapter.getPosition(address);
+                Bundle bundle = intent.getExtras();
+                if (bundle == null) {
+                    return;
+                }
+                if (bundle.containsKey(BluetoothLeService.DOOR_CONTACT_DATA)) {
+                    displayDoorContactData(intent.getStringExtra(BluetoothLeService.DOOR_CONTACT_DATA), position);
+                    mAdapter.notifyDataSetChanged();
+                    if (mAdapter.getItem(position, gridItemAdapter.STRIKE) == null) {
+                        Log.d(TAG, "Nulled Strike");
+                        mBluetoothLeService.readCharacteristic(mAdapter.getItem(position, gridItemAdapter.STRIKE), address);
+                    }
+                }
+                if (bundle.containsKey(BluetoothLeService.DOOR_STRIKE_DATA)) {
+                    displayDoorStrikeData(intent.getStringExtra(BluetoothLeService.DOOR_STRIKE_DATA), position);
+                    mAdapter.notifyDataSetChanged();
+                }
+                if (bundle.containsKey(BluetoothLeService.EXTRA_DATA)) {
+                    Log.d(TAG, intent.getStringExtra(BluetoothLeService.EXTRA_DATA));
+                }
             }
         }
     };
+
+    private void displayDoorStrikeData(String data, int position) {
+        if (data != null) {
+            if (data.equals("0")) {
+                mAdapter.setStrike(position, false);
+            }
+            if (data.equals("1")) {
+                mAdapter.setStrike(position, true);
+            }
+        }
+    }
+
+    private void displayDoorContactData(String data, int position) {
+        if (data != null) {
+            if (data.equals("0")) {
+                mAdapter.setDoor(position, false);
+            }
+            if (data.equals("1")) {
+                mAdapter.setDoor(position, true);
+            }
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -188,6 +259,31 @@ public class Main2Activity extends AppCompatActivity {
         final Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
     }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        unregisterReceiver(mGattUpdateReceiver);
+    }
+
+    private IntentFilter makeGattUpdateIntentFilter() {
+        final IntentFilter intentFilter = new IntentFilter();
+
+        intentFilter.addAction(BluetoothLeService.ACTION_GATT_CONNECTED);
+        intentFilter.addAction(BluetoothLeService.ACTION_GATT_DISCONNECTED);
+        intentFilter.addAction(BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED);
+        intentFilter.addAction(BluetoothLeService.ACTION_DESCRIPTOR_WRITE);
+        intentFilter.addAction(BluetoothLeService.ACTION_DATA_AVAILABLE);
+
+        return intentFilter;
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -263,8 +359,11 @@ public class Main2Activity extends AppCompatActivity {
                 }
             }
             if (hasMyService(result.getScanRecord())) {
-                mAdapter.add(result);
-
+                if (mAdapter.getPosition(result.getDevice().getAddress())==-1) {
+                    mAdapter.add(result);
+                    mBluetoothLeService.connect(result.getDevice().getAddress());
+                }
+                else mAdapter.add(result);
             }
 
             mAdapter.notifyDataSetChanged();

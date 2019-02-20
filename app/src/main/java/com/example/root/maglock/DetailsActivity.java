@@ -144,7 +144,7 @@ public class DetailsActivity extends Activity {
                             final BluetoothGattCharacteristic characteristic = mDeviceNameCharacteristic;
                             final int charaProp = characteristic.getProperties();
                             if ((charaProp | BluetoothGattCharacteristic.PROPERTY_READ) > 0 ) {
-                                mBluetoothLeService.readCharacteristic(characteristic);
+                                //mBluetoothLeService.readCharacteristic(characteristic);
                             }
                         }
                     }

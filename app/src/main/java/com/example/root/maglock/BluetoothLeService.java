@@ -87,6 +87,8 @@ public class BluetoothLeService extends Service {
             "ACTION_DESCRIPTOR_WRITE";
     public final static String DEVICE_DATA =
             "DEVICE_DATA";
+    public final static String CHARACTERISTIC_TYPE =
+            "CHARACTERISTIC_TYPE";
 
     public final static UUID UUID_HEART_RATE_MEASUREMENT =
             UUID.fromString(SampleGattAttributes.HEART_RATE_MEASUREMENT);
@@ -136,6 +138,7 @@ public class BluetoothLeService extends Service {
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+            Log.d(TAG, "onServicesDiscovered");
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 BluetoothDevice device = gatt.getDevice();
                 broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED, device);
@@ -169,6 +172,9 @@ public class BluetoothLeService extends Service {
             */
             BluetoothDevice device = gatt.getDevice();
             UUID characteristic = descriptor.getCharacteristic().getUuid();
+            if (characteristic.equals(SampleGattAttributes.DOOR_CONTACT_CHARACTERISTIC)) {
+                broadcastUpdate(ACTION_DESCRIPTOR_WRITE, device, CONTACT);
+            }
             if (characteristic.equals(SampleGattAttributes.DOOR_STRIKE_CHARACTERISTIC)) {
                 broadcastUpdate(ACTION_DESCRIPTOR_WRITE, device, STRIKE);
             }
@@ -184,7 +190,8 @@ public class BluetoothLeService extends Service {
             Log.d(TAG, "READ:"+ String.valueOf(characteristic.getUuid()) + "/n" + "Status:" + status);
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 Log.d(TAG, "READ_SUCCESS");
-                broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
+                BluetoothDevice device = gatt.getDevice();
+                broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic, device);
             }
         }
 
@@ -200,15 +207,57 @@ public class BluetoothLeService extends Service {
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt,
                                             BluetoothGattCharacteristic characteristic) {
-            broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
+            BluetoothDevice device = gatt.getDevice();
+            broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic, device);
         }
     };
+
+    private void broadcastUpdate(String action, BluetoothGattCharacteristic characteristic, BluetoothDevice device) {
+        final Intent intent = new Intent(action);
+        intent.putExtra(DEVICE_DATA, device);
+        Log.d(TAG, device.getAddress() + ":" + characteristic.getUuid().toString());
+
+        if (SampleGattAttributes.DOOR_CONTACT_CHARACTERISTIC.equals(characteristic.getUuid())) {
+            final byte[] data = characteristic.getValue();
+            if (data!=null && data.length > 0) {
+                if (data.length == 1) {
+                    intent.putExtra(DOOR_CONTACT_DATA, String.valueOf(data[0]));
+                }
+                else
+                    intent.putExtra(DOOR_CONTACT_DATA, String.valueOf(false));
+            }
+        }
+        else if (SampleGattAttributes.DOOR_STRIKE_CHARACTERISTIC.equals(characteristic.getUuid())) {
+            final byte[] data = characteristic.getValue();
+            if (data != null && data.length > 0) {
+                if (data.length == 1) {
+                    intent.putExtra(DOOR_STRIKE_DATA, String.valueOf(data[0]));
+                }
+                else
+                    intent.putExtra(DOOR_STRIKE_DATA, String.valueOf(false));
+            }
+        }
+        else {
+            final byte[] data = characteristic.getValue();
+            if (data != null && data.length > 0) {
+                final StringBuilder stringBuilder = new StringBuilder(data.length);
+                for (byte byteChar : data) {
+                    stringBuilder.append(String.format("%02X ", byteChar));
+                    Log.d(TAG, String.valueOf(byteChar));
+                }
+                Log.d(TAG, new String(data));
+                intent.putExtra(EXTRA_DATA, new String(data) + "\n" + stringBuilder.toString());
+            }
+        }
+        sendBroadcast(intent);
+    }
 
     private void broadcastUpdate(String action, BluetoothDevice device, int type) {
         final Intent intent = new Intent(action);
         intent.putExtra(DEVICE_DATA, device);
         intent.putExtra(CHARACTERISTIC_TYPE, type);
 
+        sendBroadcast(intent);
     }
 
 
@@ -220,6 +269,8 @@ public class BluetoothLeService extends Service {
         final Intent intent = new Intent(action);
         intent.putExtra(DEVICE_DATA, device);
 
+        Log.d(TAG, "broadcastUpdate called");
+        Log.d(TAG, intent.toString());
         sendBroadcast(intent);
     }
 
@@ -493,7 +544,8 @@ public class BluetoothLeService extends Service {
 
         if(connectionState == BluetoothProfile.STATE_DISCONNECTED ){
             // connect your device
-            device.connectGatt(this, false, mGattCallback);
+            device.connectGatt(this, false, mGattCallback, TRANSPORT_LE);
+            Log.d(TAG, "connectGatt");
         }else if( connectionState == BluetoothProfile.STATE_CONNECTED ){
             // already connected . send Broadcast if needed
         }
@@ -503,31 +555,13 @@ public class BluetoothLeService extends Service {
         // parameter to false.
         //mBluetoothGatt = device.connectGatt(this, false, mGattCallback, TRANSPORT_LE);
 
-        Log.d(TAG, "Trying to create a new connection.");
-        Log.d(TAG, "ConnectGatt() - " + mBluetoothGatt.toString());
-        /*
-            Attempting to get the Alias from the device to see if this works.
-         */
-        BluetoothDevice dev = mBluetoothGatt.getDevice();
-        String deviceAlias = dev.getName();
-        try {
-            Method method = dev.getClass().getMethod("getAliasName");
-            if (method != null) {
-                deviceAlias = (String) method.invoke(dev);
-            }
-        } catch (NoSuchMethodException e) {
-            e.printStackTrace();
-        } catch (InvocationTargetException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
-        }
+        //Log.d(TAG, "Trying to create a new connection.");
+        //Log.d(TAG, "ConnectGatt() - " + mBluetoothGatt.toString());
+
 
         /*
             END
          */
-        Log.d(TAG, "Device Alias - " + deviceAlias);
-
         mBluetoothDeviceAddress = address;
         mConnectionState = STATE_CONNECTING;
         return true;
@@ -581,12 +615,20 @@ public class BluetoothLeService extends Service {
      *
      * @param characteristic The characteristic to read from.
      */
-    public void readCharacteristic(BluetoothGattCharacteristic characteristic) {
+    public void readCharacteristic(BluetoothGattCharacteristic characteristic, String address) {
+        BluetoothGatt gatt = connectedDeviceMap.get(address);
+        if (gatt == null || mBluetoothAdapter == null) {
+            return;
+        }
+        gatt.readCharacteristic(characteristic);
+
+        /*
         if (mBluetoothAdapter == null || mBluetoothGatt == null) {
             Log.w(TAG, "BluetoothAdapter not initialized");
             return;
         }
         mBluetoothGatt.readCharacteristic(characteristic);
+        */
     }
 
     public void  writeCharacteristic(BluetoothGattCharacteristic characteristic) {

@@ -3,7 +3,10 @@ package com.example.root.maglock;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.le.ScanResult;
 import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.Color;
+import android.graphics.ColorFilter;
+import android.support.v4.content.res.ResourcesCompat;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -25,8 +28,7 @@ public class gridItemAdapter extends BaseAdapter {
     private static final String TAG = ScanFragment.class.getSimpleName();
 
     private ArrayList<ScanResult> mArrayList;
-    private ArrayList<Boolean> mConnectedList;
-    private ArrayList<Boolean> mDoorList;
+    private ArrayList<Boolean> mConnectedList, mDoorList, mStrikeList;
     private ArrayList<BluetoothGattCharacteristic> mDoorContactList, mDoorStrikeList, mDoorReqList;
     private LayoutInflater mInflater;
     private Context mContext;
@@ -41,6 +43,7 @@ public class gridItemAdapter extends BaseAdapter {
         mDoorContactList = new ArrayList<>();
         mDoorStrikeList = new ArrayList<>();
         mDoorReqList = new ArrayList<>();
+        mStrikeList = new ArrayList<>();
     }
 
     @Override
@@ -73,6 +76,7 @@ public class gridItemAdapter extends BaseAdapter {
         ScanResult scanResult = mArrayList.get(position);
         Boolean connected = mConnectedList.get(position);
         Boolean door = mDoorList.get(position);
+        Boolean strike = mStrikeList.get(position);
 
         ImageView imageView = (ImageView) convertView.findViewById(R.id.grid_lock);
         ImageButton imageButton = (ImageButton) convertView.findViewById(R.id.grid_door);
@@ -86,13 +90,26 @@ public class gridItemAdapter extends BaseAdapter {
         }
         else {
             imageView.setColorFilter(Color.BLACK);
-            if (door) {
-                imageButton.setColorFilter(Color.GREEN);
+            if (door == null) {
+                imageButton.setColorFilter(Color.LTGRAY);
+                imageButton.setImageResource(R.drawable.door);
+            }
+            else if (!door) {
+                imageButton.setColorFilter(ResourcesCompat.getColor(parent.getResources(), R.color.colorRed, null));
                 imageButton.setImageResource(R.drawable.door_open);
             }
             else {
-                imageButton.setColorFilter(Color.RED);
+                imageButton.setColorFilter(ResourcesCompat.getColor(parent.getResources(), R.color.colorGreen, null));
                 imageButton.setImageResource(R.drawable.door_closed);
+            }
+            if (strike == null) {
+                imageView.setColorFilter(Color.LTGRAY);
+            }
+            else if (!strike) {
+                imageView.setImageResource(R.drawable.lock_open_outline);
+            }
+            else {
+                imageView.setImageResource(R.drawable.lock);
             }
         }
         if (!(scanResult.getScanRecord().getDeviceName() == null)) {
@@ -142,7 +159,8 @@ public class gridItemAdapter extends BaseAdapter {
                 // Add new Device's ScanResult to list.
                 mArrayList.add(scanResult);
                 mConnectedList.add(false);
-                mDoorList.add(false);
+                mDoorList.add(null);
+                mStrikeList.add(null);
                 mDoorContactList.add(null);
                 mDoorStrikeList.add(null);
                 mDoorReqList.add(null);
@@ -156,6 +174,9 @@ public class gridItemAdapter extends BaseAdapter {
     }
     public void setDoor(int position, boolean state) {
         mDoorList.set(position, state);
+    }
+    public void setStrike(int position, boolean state) {
+        mStrikeList.set(position, state);
     }
     public void addCharacteristics(int position, BluetoothGattCharacteristic characteristic, int type) {
         switch (type) {

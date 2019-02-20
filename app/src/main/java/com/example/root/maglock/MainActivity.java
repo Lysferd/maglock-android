@@ -121,7 +121,7 @@ public class MainActivity extends AppCompatActivity {
                 //clearUI();
             } else if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
                 // Show all the supported services and characteristics on the user interface.
-                displayGattServices(mBluetoothLeService.getSupportedGattServices());
+                //displayGattServices(mBluetoothLeService.getSupportedGattServices());
             } else if (BluetoothLeService.ACTION_DATA_AVAILABLE.equals(action)) {
                 //displayData(intent.getStringExtra(BluetoothLeService.EXTRA_DATA));
                 displayBattery(intent.getStringExtra(BluetoothLeService.BATTERY_DATA));
