@@ -1,0 +1,39 @@
+<resources>
+    <string name="app_name">MagLock</string>
+    <string name="title_home">Home</string>
+    <string name="title_dashboard">Dashboard</string>
+    <string name="title_notifications">Notifications</string>
+    <string name="lock">Lock</string>
+    <string name="refresh">Refresh</string>
+    <string name="stop">Stop</string>
+    <string name="clear">Clear</string>
+    <string name="no_name">-no name-</string>
+    <string name="bt_not_enabled_leaving">Permission Denied - Leaving.</string>
+    <string name="empty_list">Nothing</string>
+    <string name="already_scanning">Scanning...</string>
+    <string name="last_seen">Last seen</string>
+    <string name="just_now">just now</string>
+    <string name="seconds_ago">seconds ago</string>
+    <string name="minute_ago">minute ago</string>
+    <string name="minutes_ago">minutes ago</string>
+    <string name="hour_ago">hour ago</string>
+    <string name="hours_ago">hours ago</string>
+
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="unknown_service">Unkown Service</string>
+    <string name="unknown_characteristic">Unknown Characteristic</string>
+    <string name="searchactivityname">Search Activity</string>
+    <string name="startactivityname">Start MagLock</string>
+    <string name="bluetoothswitchtext">Bluetooth</string>
+    <string name="lock_symbol">Lock Symbol</string>
+    <string name="device_name">Device Name -</string>
+    <string name="unnamed">\?????</string>
+    <string name="battery_level">Battery Level -</string>
+    <string name="no_battery">\??</string>
+    <string name="heart_rate">Heart Rate -</string>
+    <string name="no_heartrate">\??</string>
+    <string name="led">LED:</string>
+    <string name="extra">Extra:</string>
+    <string name="to_do">TODO</string>
+</resources>

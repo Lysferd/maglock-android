@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:focusable="false"
+    android:clickable="false"
+    android:focusableInTouchMode="false">
+
+    <Button
+        android:id="@+id/buttonLock"
+        android:layout_width="81dp"
+        android:layout_height="81dp"
+        android:background="@mipmap/ic_sqrlock"
+        android:focusable="false"
+        android:clickable="false"
+        android:focusableInTouchMode="false"/>
+    <Button
+        android:id="@+id/buttonKey"
+        android:layout_width="25dp"
+        android:layout_height="25dp"
+        android:background="@mipmap/ic_key"
+        android:layout_toEndOf="@id/buttonLock"
+        android:focusable="false"
+        android:clickable="false"
+        android:focusableInTouchMode="false"/>
+    <Button
+        android:id="@+id/buttonWarning"
+        android:layout_width="25dp"
+        android:layout_height="25dp"
+        android:background="@mipmap/ic_warning"
+        android:layout_below="@id/buttonKey"
+        android:layout_alignStart="@id/buttonKey"
+        android:focusable="false"
+        android:clickable="false"
+        android:focusableInTouchMode="false"/>
+
+    <TextView
+        android:id="@+id/device_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignStart="@id/buttonLock"
+        android:layout_below="@id/buttonLock"
+        android:layout_marginStart="8dp"
+        android:text="@string/no_name"
+        android:textSize="10sp"
+        android:maxWidth="90dp"
+        android:maxLines="1"
+        android:focusable="false"
+        android:clickable="false"
+        android:focusableInTouchMode="false"/>
+
+    <TextView
+        android:id="@+id/device_address"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignStart="@id/device_name"
+        android:layout_below="@id/device_name"
+        android:text="address"
+        android:textSize="10sp"
+        android:maxWidth="90dp"
+        android:maxLines="1"
+        android:focusable="false"
+        android:clickable="false"
+        android:focusableInTouchMode="false"/>
+
+</RelativeLayout>

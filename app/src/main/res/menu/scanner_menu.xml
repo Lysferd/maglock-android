@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/refresh"
+        android:title="@string/refresh"
+        app:showAsAction="ifRoom"
+        android:icon="@drawable/ic_action_refresh"
+        />
+    <item
+        android:id="@+id/stop"
+        android:title="@string/stop"
+        app:showAsAction="ifRoom"
+        android:icon="@drawable/ic_action_stop"
+        />
+    <item
+        android:id="@+id/clear"
+        android:title="@string/clear"
+        app:showAsAction="ifRoom"
+        android:icon="@drawable/ic_action_clear"
+        />
+
+</menu>
