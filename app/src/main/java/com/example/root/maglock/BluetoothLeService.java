@@ -193,6 +193,11 @@ public class BluetoothLeService extends Service {
                 BluetoothDevice device = gatt.getDevice();
                 broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic, device);
             }
+            if (characteristic.getUuid().equals(SampleGattAttributes.DOOR_CONTACT_CHARACTERISTIC)) {
+                BluetoothGattCharacteristic characteristic1 = gatt.getService(SampleGattAttributes.DOOR_SERVICE_UUID)
+                        .getCharacteristic(SampleGattAttributes.DOOR_STRIKE_CHARACTERISTIC);
+                gatt.readCharacteristic(characteristic1);
+            }
         }
 
         @Override
@@ -446,6 +451,14 @@ public class BluetoothLeService extends Service {
             }
         }
         sendBroadcast(intent);
+    }
+
+    public void writeCharacteristic(BluetoothGattCharacteristic characteristic, String address) {
+        BluetoothGatt gatt = connectedDeviceMap.get(address);
+        if (gatt == null || mBluetoothAdapter == null) {
+            return;
+        }
+        gatt.writeCharacteristic(characteristic);
     }
 
     public class LocalBinder extends Binder {

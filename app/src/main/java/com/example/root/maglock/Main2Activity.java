@@ -1,6 +1,7 @@
 package com.example.root.maglock;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGattCharacteristic;
@@ -17,19 +18,24 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.res.Resources;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.ParcelUuid;
 import android.support.annotation.Nullable;
+import android.support.constraint.ConstraintLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.Layout;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.GridView;
+import android.widget.RelativeLayout;
 import android.widget.Switch;
 import android.widget.Toast;
 
@@ -37,6 +43,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import static com.example.root.maglock.DetailsActivity.address;
 import static com.example.root.maglock.SearchActivity.hasMyService;
 
 public class Main2Activity extends AppCompatActivity {
@@ -50,6 +57,7 @@ public class Main2Activity extends AppCompatActivity {
 
     private gridItemAdapter mAdapter;
     private GridView gridView;
+    private ConstraintLayout griditem;
 
     private Switch aSwitch;
     private Button button;
@@ -132,7 +140,7 @@ public class Main2Activity extends AppCompatActivity {
                         break;
                     case (BluetoothLeService.STRIKE):
                         Log.d(TAG, "Strike descriptor notify called, nothing else to be done");
-                        mBluetoothLeService.readCharacteristic(mAdapter.getItem(position, gridItemAdapter.STRIKE), address);
+                        mBluetoothLeService.readCharacteristic(mAdapter.getItem(position, gridItemAdapter.CONTACT), address);
 
                         break;
                 }
@@ -148,10 +156,6 @@ public class Main2Activity extends AppCompatActivity {
                 if (bundle.containsKey(BluetoothLeService.DOOR_CONTACT_DATA)) {
                     displayDoorContactData(intent.getStringExtra(BluetoothLeService.DOOR_CONTACT_DATA), position);
                     mAdapter.notifyDataSetChanged();
-                    if (mAdapter.getItem(position, gridItemAdapter.STRIKE) == null) {
-                        Log.d(TAG, "Nulled Strike");
-                        mBluetoothLeService.readCharacteristic(mAdapter.getItem(position, gridItemAdapter.STRIKE), address);
-                    }
                 }
                 if (bundle.containsKey(BluetoothLeService.DOOR_STRIKE_DATA)) {
                     displayDoorStrikeData(intent.getStringExtra(BluetoothLeService.DOOR_STRIKE_DATA), position);
@@ -186,10 +190,12 @@ public class Main2Activity extends AppCompatActivity {
         }
     }
 
+    @SuppressLint("ResourceType")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main2);
+        aSwitch = findViewById(R.id.main2_bluetooth_switch);
         // Checking whether the bluetooth is active, and if not, asks for permission to activate it.
         requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_REQUEST_FINE_LOCATION);
         if (savedInstanceState == null) {
@@ -199,7 +205,7 @@ public class Main2Activity extends AppCompatActivity {
             if (mBluetoothAdapter != null) {
                 // Is Bluetooth turned on?
                 if (mBluetoothAdapter.isEnabled()) {
-                    //aSwitch.setChecked(true);
+                    aSwitch.setChecked(true);
                 } else {
                     // Prompt user to turn on Bluetooth (logic continues in onActivityResult()).
                     Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
@@ -208,11 +214,13 @@ public class Main2Activity extends AppCompatActivity {
             }
         }
         button = (Button) findViewById(R.id.main2_refresh_button);
-        aSwitch = findViewById(R.id.main2_bluetooth_switch);
+
         mBluetoothLeScanner = mBluetoothAdapter.getBluetoothLeScanner();
 
         // Initialize the gridView and link it to the adapter that will populate it.
         gridView = findViewById(R.id.grid);
+        griditem = findViewById(R.id.griditem);
+
 
         mAdapter = new gridItemAdapter(getApplicationContext(),
                 LayoutInflater.from(this));
@@ -225,7 +233,16 @@ public class Main2Activity extends AppCompatActivity {
         gridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                // TO BE DONE
+                Log.d(TAG, "onItemClick position:" + position);
+                if (mAdapter.getConnection(position)) {
+                    BluetoothGattCharacteristic characteristic = mAdapter.getItem(position, gridItemAdapter.REQ);
+                    byte[] data = {1,2,3,4,5,6,7,8,9,0};
+                    characteristic.setValue(data);
+                    ScanResult scanResult = (ScanResult) mAdapter.getItem(position);
+                    String address = scanResult.getDevice().getAddress();
+                    mBluetoothLeService.writeCharacteristic(characteristic, address);
+                }
+
             }
         });
         button.setOnClickListener(new View.OnClickListener() {
@@ -362,6 +379,30 @@ public class Main2Activity extends AppCompatActivity {
                 if (mAdapter.getPosition(result.getDevice().getAddress())==-1) {
                     mAdapter.add(result);
                     mBluetoothLeService.connect(result.getDevice().getAddress());
+
+                    int count = mAdapter.getCount();
+                    int base = dp(100);
+                    ViewGroup.LayoutParams params = gridView.getLayoutParams();
+                    if (count == 0) {
+                        params.height = 10;
+                        params.width = 10;
+                    }
+                    else if (count < 4) {
+                        gridView.setNumColumns(count);
+                        params.height = base;
+                        params.width = (base)*count;
+                    }
+                    else {
+                        int major, minor;
+                        major = count/3;
+                        minor = count%3;
+                        if (minor != 0) {
+                            major++;
+                        }
+                        params.height = (base)*major;
+                    }
+                    gridView.setLayoutParams(params);
+                    gridView.invalidate();
                 }
                 else mAdapter.add(result);
             }
@@ -396,4 +437,7 @@ public class Main2Activity extends AppCompatActivity {
         }
     }
 
+    public int dp(int value) {
+        return (int) (value * Resources.getSystem().getDisplayMetrics().density + 0.5f);
+    }
 }

@@ -79,7 +79,7 @@ public class gridItemAdapter extends BaseAdapter {
         Boolean strike = mStrikeList.get(position);
 
         ImageView imageView = (ImageView) convertView.findViewById(R.id.grid_lock);
-        ImageButton imageButton = (ImageButton) convertView.findViewById(R.id.grid_door);
+        ImageView imageButton = (ImageView) convertView.findViewById(R.id.grid_door);
 
         //imageView.setColorFilter(ResourcesCompat.getColor(getResources(), R.color.colorGreen, null));
         if (!connected) {
@@ -215,5 +215,9 @@ public class gridItemAdapter extends BaseAdapter {
                 break;
         }
         return null;
+    }
+
+    public boolean getConnection(int position) {
+        return mConnectedList.get(position);
     }
 }
