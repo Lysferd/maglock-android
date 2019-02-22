@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
+import android.support.annotation.Nullable;
 import android.support.v4.content.res.ResourcesCompat;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -86,7 +87,7 @@ public class gridItemAdapter extends BaseAdapter {
             imageView.setColorFilter(Color.LTGRAY);
             imageButton.setColorFilter(Color.LTGRAY);
             imageButton.setImageResource(R.drawable.door);
-            Log.d(TAG, "ColorFilterCalled");
+            imageView.setImageResource(R.drawable.lock);
         }
         else {
             imageView.setColorFilter(Color.BLACK);
@@ -178,6 +179,9 @@ public class gridItemAdapter extends BaseAdapter {
     public void setStrike(int position, boolean state) {
         mStrikeList.set(position, state);
     }
+    public void setStrikeNull(int position) {
+        mStrikeList.set(position, null);
+    }
     public void addCharacteristics(int position, BluetoothGattCharacteristic characteristic, int type) {
         switch (type) {
             case CONTACT:
@@ -218,6 +222,13 @@ public class gridItemAdapter extends BaseAdapter {
     }
 
     public boolean getConnection(int position) {
+        if (mConnectedList.get(position) == null) {
+            return false;
+        }
         return mConnectedList.get(position);
+    }
+
+    public void setDoorNull(int position) {
+        mDoorList.set(position, null);
     }
 }

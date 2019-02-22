@@ -35,6 +35,7 @@ import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.GridView;
+import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.Switch;
 import android.widget.Toast;
@@ -57,12 +58,13 @@ public class Main2Activity extends AppCompatActivity {
 
     private gridItemAdapter mAdapter;
     private GridView gridView;
-    private ConstraintLayout griditem;
+    private ProgressBar progressBar;
 
     private Switch aSwitch;
     private Button button;
 
     private boolean scanning = false;
+    private boolean stateChanged = false;
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
 
@@ -95,6 +97,25 @@ public class Main2Activity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
+            if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
+                Log.d(TAG, "ACTION_STATE_CHANGED");
+                int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1);
+                if (state == (BluetoothAdapter.STATE_ON)) {
+                    Log.d(TAG, "STATE_ON");
+                    if (stateChanged) {
+                        for (int i = 0; i < mAdapter.getCount(); i++) {
+                            ScanResult result = (ScanResult) mAdapter.getItem(i);
+                            mBluetoothLeService.connect(result.getDevice().getAddress());
+                        }
+                    }
+                }
+                if (state == (BluetoothAdapter.STATE_OFF)) {
+                    Log.d(TAG, "STATE_OFF");
+                    stateChanged = true;
+                    mBluetoothLeService.disconnect();
+                }
+
+            }
             if (BluetoothLeService.ACTION_GATT_CONNECTED.equals(action)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
                 String address = device.getAddress();
@@ -219,7 +240,7 @@ public class Main2Activity extends AppCompatActivity {
 
         // Initialize the gridView and link it to the adapter that will populate it.
         gridView = findViewById(R.id.grid);
-        griditem = findViewById(R.id.griditem);
+        progressBar = findViewById(R.id.grid_progressbar);
 
 
         mAdapter = new gridItemAdapter(getApplicationContext(),
@@ -251,10 +272,12 @@ public class Main2Activity extends AppCompatActivity {
                 if (!scanning) {
                     button.setBackground(getDrawable(R.drawable.ic_action_stop));
                     startScanning();
+                    progressBar.setVisibility(View.VISIBLE);
                 }
                 else {
                     button.setBackground(getDrawable(R.drawable.ic_action_refresh));
                     stopScanning();
+                    progressBar.setVisibility(View.GONE);
                 }
             }
         });
@@ -264,8 +287,19 @@ public class Main2Activity extends AppCompatActivity {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 if (!isChecked) {
+                    if (progressBar.getVisibility()==View.VISIBLE) {
+                        if (button.performClick()) {
+                            Log.d(TAG, "button clicked.");
+                        }
+                    }
                     mBluetoothAdapter.disable();
                     button.setVisibility(View.INVISIBLE);
+                    for (int i=0; i<mAdapter.getCount(); i++ ) {
+                        mAdapter.setConnection(i, false);
+                        mAdapter.setStrikeNull(i);
+                        mAdapter.setDoorNull(i);
+                    }
+                    mAdapter.notifyDataSetChanged();
                 }
                 else {
                     mBluetoothAdapter.enable();
@@ -291,6 +325,8 @@ public class Main2Activity extends AppCompatActivity {
 
     private IntentFilter makeGattUpdateIntentFilter() {
         final IntentFilter intentFilter = new IntentFilter();
+
+        intentFilter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
 
         intentFilter.addAction(BluetoothLeService.ACTION_GATT_CONNECTED);
         intentFilter.addAction(BluetoothLeService.ACTION_GATT_DISCONNECTED);
@@ -404,7 +440,9 @@ public class Main2Activity extends AppCompatActivity {
                     gridView.setLayoutParams(params);
                     gridView.invalidate();
                 }
-                else mAdapter.add(result);
+                else {
+                    mAdapter.add(result);
+                }
             }
 
             mAdapter.notifyDataSetChanged();

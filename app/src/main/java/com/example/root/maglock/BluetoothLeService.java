@@ -461,6 +461,14 @@ public class BluetoothLeService extends Service {
         gatt.writeCharacteristic(characteristic);
     }
 
+    public boolean getConnectionState(String address) {
+        BluetoothGatt gatt = connectedDeviceMap.get(address);
+        if (gatt == null || mBluetoothAdapter == null) {
+            return false;
+        }
+        return true;
+    }
+
     public class LocalBinder extends Binder {
         BluetoothLeService getService() {
             return BluetoothLeService.this;
@@ -602,11 +610,12 @@ public class BluetoothLeService extends Service {
      * callback.
      */
     public void disconnect() {
-        if (mBluetoothAdapter == null || mBluetoothGatt == null) {
+        connectedDeviceMap.clear();
+        /*if (mBluetoothAdapter == null || mBluetoothGatt == null) {
             Log.w(TAG, "BluetoothAdapter not initialized");
             return;
-        }
-        mBluetoothGatt.disconnect();
+        }*/
+        //mBluetoothGatt.disconnect();
     }
 
     /**
