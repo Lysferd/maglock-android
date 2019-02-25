@@ -1,0 +1,5 @@
+{
+    "tableName": "dynamobe612700",
+    "partitionKeyName": "date",
+    "partitionKeyType": "S"
+}

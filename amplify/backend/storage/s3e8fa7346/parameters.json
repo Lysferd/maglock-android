@@ -1,0 +1,13 @@
+{
+    "bucketName": "maglock9a2ff805bd3b447ab2c7391cebda4f15",
+    "authPolicyName": "s3_amplify_e8fa7346",
+    "unauthPolicyName": "s3_amplify_e8fa7346",
+    "authRoleName": {
+        "Ref": "AuthRoleName"
+    },
+    "unauthRoleName": {
+        "Ref": "UnauthRoleName"
+    },
+    "authPermissions": "rw",
+    "unauthPermissions": ""
+}

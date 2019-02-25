@@ -1,0 +1,27 @@
+{
+	"api": {
+		"maglock": {
+			"service": "AppSync",
+			"providerPlugin": "awscloudformation",
+			"output": {
+				"securityType": "API_KEY"
+			}
+		}
+	},
+	"auth": {
+		"cognitof3c342fa": {
+			"service": "Cognito",
+			"providerPlugin": "awscloudformation"
+		}
+	},
+	"storage": {
+		"s3e8fa7346": {
+			"service": "S3",
+			"providerPlugin": "awscloudformation"
+		},
+		"dynamobe612700": {
+			"service": "DynamoDB",
+			"providerPlugin": "awscloudformation"
+		}
+	}
+}

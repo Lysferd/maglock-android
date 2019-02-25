@@ -1,0 +1,19 @@
+{
+    "android": {
+        "awscloudformation": {
+            "AuthRoleName": "maglock-20190222172424-authRole",
+            "UnauthRoleArn": "arn:aws:iam::663108999154:role/maglock-20190222172424-unauthRole",
+            "AuthRoleArn": "arn:aws:iam::663108999154:role/maglock-20190222172424-authRole",
+            "Region": "us-east-1",
+            "DeploymentBucketName": "maglock-20190222172424-deployment",
+            "UnauthRoleName": "maglock-20190222172424-unauthRole",
+            "StackName": "maglock-20190222172424",
+            "StackId": "arn:aws:cloudformation:us-east-1:663108999154:stack/maglock-20190222172424/d9085680-36df-11e9-ab6e-1297d6a5b478"
+        },
+        "categories": {
+            "auth": {
+                "cognitof3c342fa": {}
+            }
+        }
+    }
+}

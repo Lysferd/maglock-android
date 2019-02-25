@@ -36,15 +36,45 @@ import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.GridView;
 import android.widget.ProgressBar;
-import android.widget.RelativeLayout;
 import android.widget.Switch;
 import android.widget.Toast;
 
+import com.amazonaws.amplify.generated.graphql.CreateTodoMutation;
+import com.amazonaws.amplify.generated.graphql.ListTodosQuery;
+import com.amazonaws.amplify.generated.graphql.OnCreateTodoSubscription;
+import com.amazonaws.mobile.client.AWSMobileClient;
+import com.amazonaws.mobile.client.Callback;
+import com.amazonaws.mobile.client.UserStateDetails;
+import com.amazonaws.mobileconnectors.appsync.AWSAppSyncClient;
+import com.amazonaws.mobileconnectors.appsync.AppSyncSubscriptionCall;
+import com.amazonaws.mobileconnectors.appsync.fetcher.AppSyncResponseFetchers;
+import com.amazonaws.mobileconnectors.s3.transferutility.TransferListener;
+import com.amazonaws.mobileconnectors.s3.transferutility.TransferObserver;
+import com.amazonaws.mobileconnectors.s3.transferutility.TransferService;
+import com.amazonaws.mobileconnectors.s3.transferutility.TransferState;
+import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtility;
+import com.amazonaws.services.s3.AmazonS3Client;
+import com.apollographql.apollo.GraphQLCall;
+import com.apollographql.apollo.api.Response;
+import com.apollographql.apollo.exception.ApolloException;
+
+
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.TimeZone;
 
-import static com.example.root.maglock.DetailsActivity.address;
+import javax.annotation.Nonnull;
+
+import type.CreateTodoInput;
+
 import static com.example.root.maglock.SearchActivity.hasMyService;
 
 public class Main2Activity extends AppCompatActivity {
@@ -65,6 +95,8 @@ public class Main2Activity extends AppCompatActivity {
 
     private boolean scanning = false;
     private boolean stateChanged = false;
+
+    private SimpleDateFormat sdf;
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
 
@@ -216,6 +248,30 @@ public class Main2Activity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main2);
+
+        /*
+        mAWSAppSyncClient = AWSAppSyncClient.builder()
+                .context(getApplicationContext())
+                .awsConfiguration(new AWSConfiguration(getApplicationContext()))
+                .build();
+        */
+        sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
+        sdf.setTimeZone(TimeZone.getTimeZone("GMT"));
+        System.out.println(sdf.format(new Date())); //-prints-> 2015-01-22T03:23:26Z
+
+        AWSMobileClient.getInstance().initialize(getApplicationContext(), new Callback<UserStateDetails>() {
+            @Override
+            public void onResult(UserStateDetails userStateDetails) {
+                Log.i(TAG, "AWSMobileClient initialized. User State is " + userStateDetails.getUserState());
+            }
+
+            @Override
+            public void onError(Exception e) {
+                Log.e(TAG, "Initialization error.", e);
+            }
+        });
+        uploadWithTransferUtility();
+
         aSwitch = findViewById(R.id.main2_bluetooth_switch);
         // Checking whether the bluetooth is active, and if not, asks for permission to activate it.
         requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_REQUEST_FINE_LOCATION);
@@ -309,6 +365,105 @@ public class Main2Activity extends AppCompatActivity {
         });
         final Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
+
+        /*
+        runMutation();
+        runQuery();
+        subscribe();
+        */
+        getApplicationContext().startService(new Intent(getApplicationContext(), TransferService.class));
+
+    }
+
+    public File addTextToFile(String text) {
+
+        File myDir = getApplicationContext().getFilesDir();
+        Log.d(TAG, myDir.getPath());
+        // Documents Path
+        String documents = "documents/data";
+        File documentsFolder = new File(myDir, documents);
+        Log.d(TAG, documentsFolder.getPath());
+        boolean created = documentsFolder.mkdirs();
+        Log.d(TAG, "folder create? " + created);
+
+
+        File logFile = new File(documentsFolder.getPath() + "/testfile.txt");
+        Log.d(TAG, logFile.getPath());
+        if (!logFile.exists()) {
+            try {
+                //new File(logFile.getParent()).mkdirs();
+                logFile.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        try {
+            BufferedWriter buf = new BufferedWriter(new FileWriter(logFile, true));
+            buf.append(text);
+            buf.newLine();
+            buf.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return logFile;
+    }
+
+    private void uploadWithTransferUtility() {
+
+        File file = addTextToFile(String.valueOf(new Date()));
+        String path = file.getPath();
+
+        TransferUtility transferUtility =
+                TransferUtility.builder()
+                        .context(getApplicationContext())
+                        .awsConfiguration(AWSMobileClient.getInstance().getConfiguration())
+                        .s3Client(new AmazonS3Client(AWSMobileClient.getInstance()))
+                        .build();
+
+        TransferObserver uploadObserver =
+                transferUtility.upload(
+                        "nepu",
+                        "public/testfile.txt",
+                        new File(path));
+
+        // Attach a listener to the observer to get state update and progress notifications
+        uploadObserver.setTransferListener(new TransferListener() {
+
+            @Override
+            public void onStateChanged(int id, TransferState state) {
+                if (TransferState.COMPLETED == state) {
+                    // Handle a completed upload.
+                    Log.d(TAG, "Upload complete");
+                }
+            }
+
+            @Override
+            public void onProgressChanged(int id, long bytesCurrent, long bytesTotal) {
+                float percentDonef = ((float) bytesCurrent / (float) bytesTotal) * 100;
+                int percentDone = (int)percentDonef;
+
+                Log.d("YourActivity", "ID:" + id + " bytesCurrent: " + bytesCurrent
+                        + " bytesTotal: " + bytesTotal + " " + percentDone + "%");
+            }
+
+            @Override
+            public void onError(int id, Exception ex) {
+                // Handle errors
+                Log.d(TAG, "Error:" + ex);
+            }
+
+        });
+
+        // If you prefer to poll for the data, instead of attaching a
+        // listener, check for the state and progress in the observer.
+        if (TransferState.COMPLETED == uploadObserver.getState()) {
+            // Handle a completed upload.
+            Log.d(TAG, "Upload complete, no listener");
+
+        }
+
+        Log.d("YourActivity", "Bytes Transferred: " + uploadObserver.getBytesTransferred());
+        Log.d("YourActivity", "Bytes Total: " + uploadObserver.getBytesTotal());
     }
 
     @Override
@@ -478,4 +633,5 @@ public class Main2Activity extends AppCompatActivity {
     public int dp(int value) {
         return (int) (value * Resources.getSystem().getDisplayMetrics().density + 0.5f);
     }
+
 }
