@@ -19,14 +19,11 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.res.Resources;
-import android.os.Build;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.ParcelUuid;
 import android.support.annotation.Nullable;
-import android.support.constraint.ConstraintLayout;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
-import android.text.Layout;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -39,41 +36,15 @@ import android.widget.ProgressBar;
 import android.widget.Switch;
 import android.widget.Toast;
 
-import com.amazonaws.amplify.generated.graphql.CreateTodoMutation;
-import com.amazonaws.amplify.generated.graphql.ListTodosQuery;
-import com.amazonaws.amplify.generated.graphql.OnCreateTodoSubscription;
-import com.amazonaws.mobile.client.AWSMobileClient;
-import com.amazonaws.mobile.client.Callback;
-import com.amazonaws.mobile.client.UserStateDetails;
-import com.amazonaws.mobileconnectors.appsync.AWSAppSyncClient;
-import com.amazonaws.mobileconnectors.appsync.AppSyncSubscriptionCall;
-import com.amazonaws.mobileconnectors.appsync.fetcher.AppSyncResponseFetchers;
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferListener;
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferObserver;
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferService;
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferState;
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtility;
-import com.amazonaws.services.s3.AmazonS3Client;
-import com.apollographql.apollo.GraphQLCall;
-import com.apollographql.apollo.api.Response;
-import com.apollographql.apollo.exception.ApolloException;
+import com.amazonaws.client.builder.AwsClientBuilder;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
+import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 
-
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.TimeZone;
-
-import javax.annotation.Nonnull;
-
-import type.CreateTodoInput;
 
 import static com.example.root.maglock.SearchActivity.hasMyService;
 
@@ -97,6 +68,9 @@ public class Main2Activity extends AppCompatActivity {
     private boolean stateChanged = false;
 
     private SimpleDateFormat sdf;
+
+    private AmazonDynamoDB client;
+    private DynamoDB dynamoDB;
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
 
@@ -255,7 +229,7 @@ public class Main2Activity extends AppCompatActivity {
                 .awsConfiguration(new AWSConfiguration(getApplicationContext()))
                 .build();
         */
-        sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
+        /*sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
         sdf.setTimeZone(TimeZone.getTimeZone("GMT"));
         System.out.println(sdf.format(new Date())); //-prints-> 2015-01-22T03:23:26Z
 
@@ -271,7 +245,33 @@ public class Main2Activity extends AppCompatActivity {
             }
         });
         uploadWithTransferUtility();
+        */
+        client = AmazonDynamoDBClientBuilder.standard()
+                .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration("http://localhost:8000", "us-east-1"))
+                .build();
 
+         dynamoDB = new DynamoDB(client);
+
+        String tableName = "Movies";
+/*///////////////////////////////////////////////////////////
+        try {
+            System.out.println("Attempting to create table; please wait...");
+            Table table = dynamoDB.createTable(tableName,
+                    Arrays.asList(new KeySchemaElement("year", KeyType.HASH), // Partition
+                            // key
+                            new KeySchemaElement("title", KeyType.RANGE)), // Sort key
+                    Arrays.asList(new AttributeDefinition("year", ScalarAttributeType.N),
+                            new AttributeDefinition("title", ScalarAttributeType.S)),
+                    new ProvisionedThroughput(10L, 10L));
+            table.waitForActive();
+            System.out.println("Success.  Table status: " + table.getDescription().getTableStatus());
+
+        }
+        catch (Exception e) {
+            System.err.println("Unable to create table: ");
+            System.err.println(e.getMessage());
+        }
+*///////////////////////////////////////////////////////////
         aSwitch = findViewById(R.id.main2_bluetooth_switch);
         // Checking whether the bluetooth is active, and if not, asks for permission to activate it.
         requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_REQUEST_FINE_LOCATION);
@@ -371,11 +371,11 @@ public class Main2Activity extends AppCompatActivity {
         runQuery();
         subscribe();
         */
-        getApplicationContext().startService(new Intent(getApplicationContext(), TransferService.class));
+        //getApplicationContext().startService(new Intent(getApplicationContext(), TransferService.class));
 
     }
 
-    public File addTextToFile(String text) {
+    /*public File addTextToFile(String text) {
 
         File myDir = getApplicationContext().getFilesDir();
         Log.d(TAG, myDir.getPath());
@@ -464,7 +464,7 @@ public class Main2Activity extends AppCompatActivity {
 
         Log.d("YourActivity", "Bytes Transferred: " + uploadObserver.getBytesTransferred());
         Log.d("YourActivity", "Bytes Total: " + uploadObserver.getBytesTotal());
-    }
+    }*/
 
     @Override
     protected void onResume() {
