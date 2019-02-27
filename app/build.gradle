@@ -16,9 +16,15 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    packagingOptions {
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/io.netty.versions.properties'
+        exclude 'META-INF/INDEX.LIST'
+
+    }
 }
 
-//apply plugin: 'com.amazonaws.appsync'
+apply plugin: 'com.amazonaws.appsync'
 
 
 dependencies {
@@ -35,7 +41,7 @@ dependencies {
     //Base SDK
     //implementation 'com.amazonaws:aws-android-sdk-core:2.12.1'
     //AppSync SDK
-    //implementation 'com.amazonaws:aws-android-sdk-appsync:2.7.8'
+    implementation 'com.amazonaws:aws-android-sdk-appsync:2.7.8'
     //implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.0'
     //implementation 'org.eclipse.paho:org.eclipse.paho.android.service:1.1.1'
     //S3 SDK
@@ -50,8 +56,21 @@ dependencies {
     //compile group: 'com.amazonaws', name: 'aws-java-sdk-dynamodb', version: '1.11.506'
 
     //implementation 'com.amazonaws:aws-java-sdk:1.11.404'
-    implementation 'com.amazonaws:aws-java-sdk:1.11.506'
+    //implementation 'com.amazonaws:aws-java-sdk:1.11.507'
     implementation 'com.amazonaws:aws-android-sdk-ddb:2.12.1'
+    implementation 'com.amazonaws:aws-android-sdk-ddb-document:2.12.1'
+    implementation 'com.amazonaws:aws-android-sdk-ddb-mapper:2.12.1'
+    implementation 'com.amazonaws:aws-android-sdk-core:2.12.1'
+    implementation 'com.amazonaws:aws-android-sdk-s3:2.12.1'
+    implementation 'com.amazonaws:aws-android-sdk-sdb:2.12.1'
+
+    /*implementation group: 'com.amazonaws', name: 'aws-java-sdk-dynamodb', version: '1.11.507'
+    implementation group: 'com.amazonaws', name: 'aws-java-sdk-s3', version: '1.11.507'
+    implementation group: 'com.amazonaws', name: 'aws-java-sdk-core', version: '1.11.507'
+    implementation group: 'com.amazonaws', name: 'jmespath-java', version: '1.11.507'*/
+
+
+    //implementation 'com.amazonaws:aws-android-sdk-ddb:2.12.1'
 
     //implementation ('com.amazonaws:aws-android-sdk-mobile-client:2.12.+@aar') { transitive = true }
 

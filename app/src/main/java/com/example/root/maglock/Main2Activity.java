@@ -36,10 +36,8 @@ import android.widget.ProgressBar;
 import android.widget.Switch;
 import android.widget.Toast;
 
-import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
-import com.amazonaws.services.dynamodbv2.document.DynamoDB;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -47,6 +45,8 @@ import java.util.HashMap;
 import java.util.List;
 
 import static com.example.root.maglock.SearchActivity.hasMyService;
+
+//import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 
 public class Main2Activity extends AppCompatActivity {
     private String TAG = "MAGLOCK."+Main2Activity.class.getSimpleName();
@@ -69,8 +69,8 @@ public class Main2Activity extends AppCompatActivity {
 
     private SimpleDateFormat sdf;
 
-    private AmazonDynamoDB client;
-    private DynamoDB dynamoDB;
+    private AmazonDynamoDBClient client;
+    private AmazonDynamoDB dynamoDB;
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
 
@@ -246,16 +246,26 @@ public class Main2Activity extends AppCompatActivity {
         });
         uploadWithTransferUtility();
         */
-        client = AmazonDynamoDBClientBuilder.standard()
+        /*client = .standard()
                 .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration("http://localhost:8000", "us-east-1"))
                 .build();
-
-         dynamoDB = new DynamoDB(client);
-
+                */
+/*/////////////////////////////////////////////////////////////////////////////////////////////
         String tableName = "Movies";
-/*///////////////////////////////////////////////////////////
+
+        CreateTableRequest request = new CreateTableRequest(
+                Arrays.asList(new AttributeDefinition("year", ScalarAttributeType.N),
+                new AttributeDefinition("title", ScalarAttributeType.S)),
+                tableName,
+                Arrays.asList(new KeySchemaElement("year", KeyType.HASH), // Partition
+                // key
+                new KeySchemaElement("title", KeyType.RANGE)), // Sort key);
+                new ProvisionedThroughput(10L, 10L)
+        );
+
+        client = AmazonDynamoDBClient.builder().build;
         try {
-            System.out.println("Attempting to create table; please wait...");
+            Log.d(TAG, "Attempting to create table; please wait...");
             Table table = dynamoDB.createTable(tableName,
                     Arrays.asList(new KeySchemaElement("year", KeyType.HASH), // Partition
                             // key
@@ -264,14 +274,16 @@ public class Main2Activity extends AppCompatActivity {
                             new AttributeDefinition("title", ScalarAttributeType.S)),
                     new ProvisionedThroughput(10L, 10L));
             table.waitForActive();
-            System.out.println("Success.  Table status: " + table.getDescription().getTableStatus());
+            Log.d(TAG, "Success.  Table status: " + table.getDescription().getTableStatus());
 
         }
         catch (Exception e) {
-            System.err.println("Unable to create table: ");
-            System.err.println(e.getMessage());
+            Log.d(TAG, "Unable to create table: ");
+            Log.d(TAG, e.getMessage());
         }
-*///////////////////////////////////////////////////////////
+        *////////////////////////////////////////////////////////////////////////////////////////////////
+
+
         aSwitch = findViewById(R.id.main2_bluetooth_switch);
         // Checking whether the bluetooth is active, and if not, asks for permission to activate it.
         requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_REQUEST_FINE_LOCATION);
