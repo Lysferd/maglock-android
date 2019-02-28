@@ -36,6 +36,9 @@ import android.widget.ProgressBar;
 import android.widget.Switch;
 import android.widget.Toast;
 
+import com.amazonaws.mobile.client.AWSMobileClient;
+import com.amazonaws.mobile.client.Callback;
+import com.amazonaws.mobile.client.UserStateDetails;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 
@@ -43,6 +46,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 import static com.example.root.maglock.SearchActivity.hasMyService;
 
@@ -282,6 +286,30 @@ public class Main2Activity extends AppCompatActivity {
             Log.d(TAG, e.getMessage());
         }
         *////////////////////////////////////////////////////////////////////////////////////////////////
+
+        //CognitoCachingCredentialsProvider credentialsProvider = new CognitoCachingCredentialsProvider();
+
+        final CountDownLatch latch = new CountDownLatch(1);
+        AWSMobileClient.getInstance().initialize(this, new Callback<UserStateDetails>() {
+            @Override
+            public void onResult(UserStateDetails result) {
+                Log.d(TAG, "result:" + result.getUserState());
+                latch.countDown();
+            }
+
+            @Override
+            public void onError(Exception e) {
+                Log.d(TAG, "Error:" + e);
+                latch.countDown();
+            }
+        });
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        /////////////////////////////////////////////////
 
 
         aSwitch = findViewById(R.id.main2_bluetooth_switch);
