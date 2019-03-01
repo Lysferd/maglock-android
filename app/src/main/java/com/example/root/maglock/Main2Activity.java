@@ -19,6 +19,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.res.Resources;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.ParcelUuid;
@@ -36,9 +37,13 @@ import android.widget.ProgressBar;
 import android.widget.Switch;
 import android.widget.Toast;
 
+import com.amazonaws.auth.CognitoCachingCredentialsProvider;
 import com.amazonaws.mobile.client.AWSMobileClient;
 import com.amazonaws.mobile.client.Callback;
 import com.amazonaws.mobile.client.UserStateDetails;
+import com.amazonaws.mobile.client.UserStateListener;
+import com.amazonaws.mobile.config.AWSConfiguration;
+import com.amazonaws.regions.Regions;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 
@@ -53,7 +58,7 @@ import static com.example.root.maglock.SearchActivity.hasMyService;
 //import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 
 public class Main2Activity extends AppCompatActivity {
-    private String TAG = "MAGLOCK."+Main2Activity.class.getSimpleName();
+    private static String TAG = "MAGLOCK."+Main2Activity.class.getSimpleName();
     private static final int PERMISSION_REQUEST_FINE_LOCATION = 400;
 
     private ScanCallback mScanCallback;
@@ -75,6 +80,12 @@ public class Main2Activity extends AppCompatActivity {
 
     private AmazonDynamoDBClient client;
     private AmazonDynamoDB dynamoDB;
+
+    private Context appContext;
+    private AWSMobileClient auth;
+    private UserStateListener listener;
+
+    private CognitoCachingCredentialsProvider credentialsProvider;
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
 
@@ -289,8 +300,11 @@ public class Main2Activity extends AppCompatActivity {
 
         //CognitoCachingCredentialsProvider credentialsProvider = new CognitoCachingCredentialsProvider();
 
+
+
+        /////////////////////////////////////////////////
         final CountDownLatch latch = new CountDownLatch(1);
-        AWSMobileClient.getInstance().initialize(this, new Callback<UserStateDetails>() {
+        AWSMobileClient.getInstance().initialize(getApplicationContext(), new Callback<UserStateDetails>() {
             @Override
             public void onResult(UserStateDetails result) {
                 Log.d(TAG, "result:" + result.getUserState());
@@ -309,8 +323,25 @@ public class Main2Activity extends AppCompatActivity {
             e.printStackTrace();
         }
 
-        /////////////////////////////////////////////////
+        appContext = getApplicationContext();
+        auth = AWSMobileClient.getInstance();
+        auth.signOut();
+        Log.d(TAG, String.valueOf(auth.getConfiguration()));
+        credentialsProvider = new CognitoCachingCredentialsProvider(
+                getApplicationContext(), // Context
+                String.valueOf(auth.getConfiguration().optJsonObject("CredentialsProvider")), // Identity Pool ID
+                /////////////////////////////Have to use the logic below to get the PoolID and finally populate the credentialsprovider
+                Regions.US_EAST_1 // Region
+        );
+        AWSConfiguration configuration = auth.getConfiguration();
+        Log.d(TAG, String.valueOf(configuration.optJsonObject("CredentialsProvider").optJSONObject("CognitoIdentity")));
+        Log.d(TAG, String.valueOf(configuration.optJsonObject("Region")));
+        //new getIdentity().execute("");
+        //Log.d(TAG, credentialsProvider.getIdentityId());
+        //dynamoDB = new AmazonDynamoDBClient(credentialsProvider);
+        //Log.d(TAG, String.valueOf(dynamoDB.toString()));
 
+        //Log.d(TAG, String.valueOf(auth.getCredentials()));  //No credentials
 
         aSwitch = findViewById(R.id.main2_bluetooth_switch);
         // Checking whether the bluetooth is active, and if not, asks for permission to activate it.
@@ -415,6 +446,14 @@ public class Main2Activity extends AppCompatActivity {
 
     }
 
+    private class getIdentity extends AsyncTask<String, Void, String> {
+
+        @Override
+        protected String doInBackground(String... strings) {
+            Log.d(TAG, credentialsProvider.getIdentityId());
+            return null;
+        }
+    }
     /*public File addTextToFile(String text) {
 
         File myDir = getApplicationContext().getFilesDir();

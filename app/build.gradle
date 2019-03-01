@@ -95,5 +95,4 @@ dependencies {
     implementation group: 'com.amazonaws', name: 'aws-android-sdk-cognitoidentityprovider-asf', version: '1.0.0'
 
 
-
 }
