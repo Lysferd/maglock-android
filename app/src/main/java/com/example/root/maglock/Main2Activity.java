@@ -43,12 +43,23 @@ import com.amazonaws.mobile.client.Callback;
 import com.amazonaws.mobile.client.UserStateDetails;
 import com.amazonaws.mobile.client.UserStateListener;
 import com.amazonaws.mobile.config.AWSConfiguration;
+import com.amazonaws.mobileconnectors.dynamodbv2.document.Expression;
+import com.amazonaws.mobileconnectors.dynamodbv2.document.GetItemOperationConfig;
+import com.amazonaws.mobileconnectors.dynamodbv2.document.QueryOperationConfig;
+import com.amazonaws.mobileconnectors.dynamodbv2.document.ScanOperationConfig;
+import com.amazonaws.mobileconnectors.dynamodbv2.document.Search;
+import com.amazonaws.mobileconnectors.dynamodbv2.document.Table;
+import com.amazonaws.mobileconnectors.dynamodbv2.document.datatype.Primitive;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
+import com.amazonaws.services.dynamodbv2.model.ScanRequest;
+
+import org.json.JSONException;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -75,6 +86,7 @@ public class Main2Activity extends AppCompatActivity {
 
     private boolean scanning = false;
     private boolean stateChanged = false;
+    private boolean identityChecked = false;
 
     private SimpleDateFormat sdf;
 
@@ -327,16 +339,64 @@ public class Main2Activity extends AppCompatActivity {
         auth = AWSMobileClient.getInstance();
         auth.signOut();
         Log.d(TAG, String.valueOf(auth.getConfiguration()));
-        credentialsProvider = new CognitoCachingCredentialsProvider(
-                getApplicationContext(), // Context
-                String.valueOf(auth.getConfiguration().optJsonObject("CredentialsProvider")), // Identity Pool ID
-                /////////////////////////////Have to use the logic below to get the PoolID and finally populate the credentialsprovider
-                Regions.US_EAST_1 // Region
-        );
+        try {
+            credentialsProvider = new CognitoCachingCredentialsProvider(
+                    getApplicationContext(), // Context
+                    String.valueOf(auth.getConfiguration()
+                            .optJsonObject("CredentialsProvider")
+                            .optJSONObject("CognitoIdentity")
+                            .optJSONObject("Default")
+                            .getString("PoolId")
+
+                    ), // Identity Pool ID
+                    /////////////////////////////Have to use the logic below to get the PoolID and finally populate the credentialsprovider
+                    //Regions.US_EAST_1 // Region
+                    Regions.fromName(auth.getConfiguration()
+                        .optJsonObject("CredentialsProvider")
+                            .optJSONObject("CognitoIdentity")
+                            .optJSONObject("Default")
+                            .getString("Region")
+                    )
+            );
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
         AWSConfiguration configuration = auth.getConfiguration();
-        Log.d(TAG, String.valueOf(configuration.optJsonObject("CredentialsProvider").optJSONObject("CognitoIdentity")));
-        Log.d(TAG, String.valueOf(configuration.optJsonObject("Region")));
-        //new getIdentity().execute("");
+        try {
+            Log.d(TAG, String.valueOf(configuration.optJsonObject("CredentialsProvider")
+                    .optJSONObject("CognitoIdentity")
+                    .optJSONObject("Default")
+                    .getString("PoolId")
+            ));
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        try {
+            Log.d(TAG, String.valueOf(configuration
+                    .optJsonObject("CredentialsProvider")
+                    .optJSONObject("CognitoIdentity")
+                    .optJSONObject("Default")
+                    .getString("Region")
+            ));
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        //Log.d(TAG, credentialsProvider.getIdentityId());
+
+        dynamoDB = new AmazonDynamoDBClient(credentialsProvider);
+
+        new getIdentity().execute("");
+
+
+                /*
+                .withKeySchema(new KeySchemaElement()
+                        .withAttributeName("year")
+                        .withKeyType(KeyType.HASH))
+
+                .withAttributeDefinitions(new AttributeDefinition()
+                        .withAttributeName()
+                )
+                */
         //Log.d(TAG, credentialsProvider.getIdentityId());
         //dynamoDB = new AmazonDynamoDBClient(credentialsProvider);
         //Log.d(TAG, String.valueOf(dynamoDB.toString()));
@@ -450,7 +510,68 @@ public class Main2Activity extends AppCompatActivity {
 
         @Override
         protected String doInBackground(String... strings) {
-            Log.d(TAG, credentialsProvider.getIdentityId());
+            Log.d(TAG, "getIdentity:" + credentialsProvider.getIdentityId());
+
+            /*
+            String tableName = "Movies";
+
+            CreateTableRequest request = new CreateTableRequest()
+                    .withTableName(tableName)
+                    .withKeySchema(Arrays.asList(
+                            new KeySchemaElement()
+                                    .withAttributeName("year")
+                                    .withKeyType(KeyType.HASH),
+                            new KeySchemaElement()
+                                    .withAttributeName("title")
+                                    .withKeyType(KeyType.RANGE)
+                    ))
+                    .withAttributeDefinitions(Arrays.asList(
+                            new AttributeDefinition()
+                                    .withAttributeName("year")
+                                    .withAttributeType(ScalarAttributeType.N),
+                            new AttributeDefinition()
+                                    .withAttributeName("title")
+                                    .withAttributeType(ScalarAttributeType.S)
+                    ));
+            request.setProvisionedThroughput(new ProvisionedThroughput()
+                    .withReadCapacityUnits(10L)
+                    .withWriteCapacityUnits(10L)
+            );
+
+            final TableDescription tableDescription = dynamoDB
+                    .createTable(request)
+                    .getTableDescription();
+
+            Tables.waitForTableToBecomeActive(dynamoDB, tableName);
+            */
+
+            Log.d(TAG, String.valueOf(dynamoDB.listTables()));
+            Log.d(TAG, String.valueOf(dynamoDB.describeTable("maglock-door1")));
+            Table table = Table.loadTable(dynamoDB, "maglock-door1");
+            Log.d(TAG, "Hashkeys:" + String.valueOf(table.getHashKeys()));
+            Log.d(TAG, "Rangekeys:" + String.valueOf(table.getRangeKeys()));
+            List<String> keys = table.getHashKeys();
+            Search document = table.query(new Primitive("date"));
+            Log.d(TAG, "Document:" + document.getAllResults());
+            ScanRequest scanRequest = new ScanRequest()
+                    .withProjectionExpression("date");
+            ScanOperationConfig scan = new ScanOperationConfig()
+                    .withAttributesToGet(Collections.singletonList("date"));
+            Expression keyExp = new Expression();
+            QueryOperationConfig queryOperationConfig =
+                    new QueryOperationConfig()
+                            .withBackwardSearch(true)
+                            .withAttributesToGet(Collections.singletonList("date, event, priority"))
+                            .withLimit(1)
+                            .withKeyExpression(keyExp);
+            GetItemOperationConfig config = new GetItemOperationConfig();
+            config.setAttributesToGet(Collections.singletonList("date"));
+
+////////////////////////////////////////////////////////////////////////////// NOT YET WORKING
+            Search search = table.scan(scan);
+            Log.d(TAG, "Search" + search.getAllResults());
+            Search search1 = table.query(queryOperationConfig);
+            Log.d(TAG, "Search1" + search1.getAllResults());
             return null;
         }
     }

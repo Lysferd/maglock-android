@@ -77,6 +77,11 @@ dependencies {
 
     // https://mvnrepository.com/artifact/com.amazonaws/aws-android-sdk-ddb
     implementation group: 'com.amazonaws', name: 'aws-android-sdk-ddb', version: '2.12.1'
+    //
+    // https://mvnrepository.com/artifact/com.amazonaws/aws-android-sdk-ddb-document
+    implementation group: 'com.amazonaws', name: 'aws-android-sdk-ddb-document', version: '2.12.2'
+
+
     // https://mvnrepository.com/artifact/com.amazonaws/aws-android-sdk-core
     implementation group: 'com.amazonaws', name: 'aws-android-sdk-core', version: '2.12.1'
     // https://mvnrepository.com/artifact/com.google.code.gson/gson
