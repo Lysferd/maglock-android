@@ -44,6 +44,7 @@ import com.amazonaws.mobile.client.UserStateDetails;
 import com.amazonaws.mobile.client.UserStateListener;
 import com.amazonaws.mobile.config.AWSConfiguration;
 import com.amazonaws.mobileconnectors.dynamodbv2.document.Expression;
+import com.amazonaws.mobileconnectors.dynamodbv2.document.Filter;
 import com.amazonaws.mobileconnectors.dynamodbv2.document.GetItemOperationConfig;
 import com.amazonaws.mobileconnectors.dynamodbv2.document.QueryOperationConfig;
 import com.amazonaws.mobileconnectors.dynamodbv2.document.ScanOperationConfig;
@@ -53,6 +54,7 @@ import com.amazonaws.mobileconnectors.dynamodbv2.document.datatype.Primitive;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
+import com.amazonaws.services.dynamodbv2.model.QueryRequest;
 import com.amazonaws.services.dynamodbv2.model.ScanRequest;
 
 import org.json.JSONException;
@@ -558,20 +560,32 @@ public class Main2Activity extends AppCompatActivity {
             ScanOperationConfig scan = new ScanOperationConfig()
                     .withAttributesToGet(Collections.singletonList("date"));
             Expression keyExp = new Expression();
-            QueryOperationConfig queryOperationConfig =
-                    new QueryOperationConfig()
-                            .withBackwardSearch(true)
-                            .withAttributesToGet(Collections.singletonList("date, event, priority"))
-                            .withLimit(1)
-                            .withKeyExpression(keyExp);
-            GetItemOperationConfig config = new GetItemOperationConfig();
-            config.setAttributesToGet(Collections.singletonList("date"));
 
+            QueryOperationConfig queryOperationConfig = new QueryOperationConfig();
+            queryOperationConfig.withLimit(1);
+            queryOperationConfig.withAttributesToGet(Collections.singletonList("date"));
+            queryOperationConfig.withBackwardSearch(true);
+                //QueryFilter filter = new QueryFilter("date", Filter.FilterCondition (ComparisonOperator.NOT_NULL));
+            Filter filter1;
+            QueryRequest queryRequest = new QueryRequest()
+                    .withTableName("maglock-door1");
+            //queryRequest.setFilterExpression("attribute_exists(date)");
+            //queryRequest.addKeyConditionsEntry("date", new Condition().withComparisonOperator(ComparisonOperator.NOT_NULL));
+            queryRequest.withScanIndexForward(false);
+            queryRequest.withAttributesToGet("date", "event", "priority");
+            queryRequest.withLimit(1);
+
+                //queryOperationConfig.withFilter(filter);
+            queryOperationConfig.withConsistentRead(true);
+            GetItemOperationConfig config = new GetItemOperationConfig();
 ////////////////////////////////////////////////////////////////////////////// NOT YET WORKING
-            Search search = table.scan(scan);
-            Log.d(TAG, "Search" + search.getAllResults());
-            Search search1 = table.query(queryOperationConfig);
-            Log.d(TAG, "Search1" + search1.getAllResults());
+            //Search search = table.scan(scan);
+            //Log.d(TAG, "Search" + search.getAllResults());
+            //Search search1 = table.query(queryOperationConfig);
+            //Log.d(TAG, "Search1" + search1.getCount());
+            //////////////////////// Failed as well
+            //QueryResult result = dynamoDB.query(queryRequest);
+            //Log.d(TAG, "result1:" + result.toString());
             return null;
         }
     }
