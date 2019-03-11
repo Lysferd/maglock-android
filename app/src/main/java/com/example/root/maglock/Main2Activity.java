@@ -43,27 +43,29 @@ import com.amazonaws.mobile.client.Callback;
 import com.amazonaws.mobile.client.UserStateDetails;
 import com.amazonaws.mobile.client.UserStateListener;
 import com.amazonaws.mobile.config.AWSConfiguration;
-import com.amazonaws.mobileconnectors.dynamodbv2.document.Expression;
-import com.amazonaws.mobileconnectors.dynamodbv2.document.Filter;
-import com.amazonaws.mobileconnectors.dynamodbv2.document.GetItemOperationConfig;
-import com.amazonaws.mobileconnectors.dynamodbv2.document.QueryOperationConfig;
-import com.amazonaws.mobileconnectors.dynamodbv2.document.ScanOperationConfig;
 import com.amazonaws.mobileconnectors.dynamodbv2.document.Search;
 import com.amazonaws.mobileconnectors.dynamodbv2.document.Table;
 import com.amazonaws.mobileconnectors.dynamodbv2.document.datatype.Primitive;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
+import com.amazonaws.services.dynamodbv2.model.AttributeValue;
+import com.amazonaws.services.dynamodbv2.model.ComparisonOperator;
+import com.amazonaws.services.dynamodbv2.model.Condition;
 import com.amazonaws.services.dynamodbv2.model.QueryRequest;
 import com.amazonaws.services.dynamodbv2.model.ScanRequest;
 
 import org.json.JSONException;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
 import static com.example.root.maglock.SearchActivity.hasMyService;
@@ -555,7 +557,7 @@ public class Main2Activity extends AppCompatActivity {
             List<String> keys = table.getHashKeys();
             Search document = table.query(new Primitive("date"));
             Log.d(TAG, "Document:" + document.getAllResults());
-            ScanRequest scanRequest = new ScanRequest()
+            /*ScanRequest scanRequest = new ScanRequest()
                     .withProjectionExpression("date");
             ScanOperationConfig scan = new ScanOperationConfig()
                     .withAttributesToGet(Collections.singletonList("date"));
@@ -572,12 +574,112 @@ public class Main2Activity extends AppCompatActivity {
             //queryRequest.setFilterExpression("attribute_exists(date)");
             //queryRequest.addKeyConditionsEntry("date", new Condition().withComparisonOperator(ComparisonOperator.NOT_NULL));
             queryRequest.withScanIndexForward(false);
-            queryRequest.withAttributesToGet("date", "event", "priority");
+            queryRequest.withAttributesToGet("date");
             queryRequest.withLimit(1);
 
                 //queryOperationConfig.withFilter(filter);
             queryOperationConfig.withConsistentRead(true);
             GetItemOperationConfig config = new GetItemOperationConfig();
+*/
+            /*QueryFilter filter = new QueryFilter(
+                    "priority",
+                    ComparisonOperator.EQ,
+                    Collections.singletonList(new AttributeValue().withN("3"))
+            );
+            QueryOperationConfig config = new QueryOperationConfig()
+                    .withBackwardSearch(true)
+                    .withFilter(filter)
+                    .withLimit(5);
+            Search search = table.query(config);*/
+
+            Condition haskKeyCondition = new Condition()
+                    .withComparisonOperator(ComparisonOperator.NOT_NULL);
+            Map<String, Condition> keyConditions = new HashMap<>();
+            keyConditions.put("date", haskKeyCondition);
+            keyConditions.put("priority", haskKeyCondition);
+
+            Map<String, AttributeValue> lastEvaluatedKey = null;
+            do {
+                ScanRequest scanRequest = new ScanRequest()
+                        .withTableName("maglock-door1")
+                        .withExclusiveStartKey(lastEvaluatedKey)
+                        .withScanFilter(keyConditions)
+                        .withConsistentRead(true);
+                QueryRequest request = new QueryRequest()
+                        .withTableName("maglock-door1")
+                        .withKeyConditions(keyConditions)
+                        .withExclusiveStartKey(lastEvaluatedKey);
+                com.amazonaws.services.dynamodbv2.model.ScanResult scanResult = dynamoDB.scan(scanRequest);
+                Log.d(TAG, scanRequest + ":" + scanResult);
+                Log.d(TAG, "scanResult.getCount():" + scanResult.getCount() );
+                Log.d(TAG, "scanResult.getScannedCount():" + scanResult.getScannedCount() );
+                List<Map<String, AttributeValue>> itemMap = new ArrayList<>();
+                //Map<Date, Map<String, AttributeValue>> itemMap2 = new ArrayMap<>();
+                List<itemWithDate> withDateArrayList = new ArrayList<>();
+                itemMap = scanResult.getItems();
+                for (Map<String, AttributeValue> item : scanResult.getItems()) {
+                    String value = item.get("event").getS();
+                    String date = item.get("date").getS();
+                    String priority = item.get("priority").getN();
+                    Log.d(TAG, "(" + priority + ")" + date + ":" + value);
+                }
+                for (Map<String, AttributeValue> item : itemMap) {
+                    itemWithDate tempItem = new itemWithDate();
+                    String event = item.get("event").getS();
+                    String date = item.get("date").getS();
+                    String dateCut = date.substring(0,19);
+                    Date date1;
+                    String mili = date.substring(20);
+                    int mili1;
+                    try {
+                         date1 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(dateCut);
+                         mili1 = Integer.parseInt(mili);
+                         tempItem.date = date1;
+                         tempItem.milis = mili1;
+                         tempItem.item = item;
+                         withDateArrayList.add(tempItem);
+                    } catch (ParseException e) {
+                        e.printStackTrace();
+                    }
+                    String priority = item.get("priority").getN();
+                    Log.d(TAG, event + "-" + date + "(" + priority + ")");
+                }
+                for (int i=0; i<withDateArrayList.size(); i++) {
+                    Log.d(TAG, withDateArrayList.get(i).date.toString());
+                }
+                Collections.sort(withDateArrayList, new Comparator<itemWithDate>() {
+                    @Override
+                    public int compare(itemWithDate o1, itemWithDate o2) {
+                        // 1<2:-1
+                        // 1==2:0
+                        // 1>2:1
+                        if (o1.date == null || o2.date == null) {
+                            return 0;
+                        }
+                        else if (o1.date.before(o2.date)) {
+                            return -1;
+                        } else if (o1.date.after(o2.date)) {
+                            return 1;
+                        } else {
+                            return o1.milis.compareTo(o2.milis);
+                        }
+                    }
+                });
+                Log.d(TAG, withDateArrayList.toString());
+                for (int i=0; i<withDateArrayList.size(); i++) {
+                    Log.d(TAG, withDateArrayList.get(i).date.toString() + "-" + withDateArrayList.get(i).item.get("event").getS());
+                    Log.d(TAG, "------------------------------------------------------------------------------------------------");
+                }
+                lastEvaluatedKey = scanResult.getLastEvaluatedKey();
+                /*QueryResult result = dynamoDB.query(request);
+                Log.d(TAG, request + ":" + result);
+                for (Map<String, AttributeValue> item : result.getItems()) {
+                    String value = item.get("event").getS();
+                    Log.d(TAG, "date:" + value);
+                }
+                lastEvaluatedKey = result.getLastEvaluatedKey();*/
+
+            } while (lastEvaluatedKey != null);
 ////////////////////////////////////////////////////////////////////////////// NOT YET WORKING
             //Search search = table.scan(scan);
             //Log.d(TAG, "Search" + search.getAllResults());
@@ -848,4 +950,10 @@ public class Main2Activity extends AppCompatActivity {
         return (int) (value * Resources.getSystem().getDisplayMetrics().density + 0.5f);
     }
 
-}
+    class itemWithDate {
+        Date date;
+        Integer milis;
+        Map<String, AttributeValue> item;
+    }
+};
+
