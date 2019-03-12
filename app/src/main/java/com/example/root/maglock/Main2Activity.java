@@ -2,6 +2,7 @@ package com.example.root.maglock;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.Dialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGattCharacteristic;
@@ -19,6 +20,10 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.res.Resources;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -35,6 +40,7 @@ import android.widget.CompoundButton;
 import android.widget.GridView;
 import android.widget.ProgressBar;
 import android.widget.Switch;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.amazonaws.auth.CognitoCachingCredentialsProvider;
@@ -42,17 +48,13 @@ import com.amazonaws.mobile.client.AWSMobileClient;
 import com.amazonaws.mobile.client.Callback;
 import com.amazonaws.mobile.client.UserStateDetails;
 import com.amazonaws.mobile.client.UserStateListener;
-import com.amazonaws.mobile.config.AWSConfiguration;
-import com.amazonaws.mobileconnectors.dynamodbv2.document.Search;
 import com.amazonaws.mobileconnectors.dynamodbv2.document.Table;
-import com.amazonaws.mobileconnectors.dynamodbv2.document.datatype.Primitive;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.dynamodbv2.model.ComparisonOperator;
 import com.amazonaws.services.dynamodbv2.model.Condition;
-import com.amazonaws.services.dynamodbv2.model.QueryRequest;
 import com.amazonaws.services.dynamodbv2.model.ScanRequest;
 
 import org.json.JSONException;
@@ -65,6 +67,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
@@ -73,8 +76,8 @@ import static com.example.root.maglock.SearchActivity.hasMyService;
 //import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 
 public class Main2Activity extends AppCompatActivity {
-    private static String TAG = "MAGLOCK."+Main2Activity.class.getSimpleName();
-    private static final int PERMISSION_REQUEST_FINE_LOCATION = 400;
+    private static String TAG = "MAGLOCK." + Main2Activity.class.getSimpleName();
+    private static final int PERMISSION_REQUEST_LOCATION = 400;
 
     private ScanCallback mScanCallback;
     private BluetoothAdapter mBluetoothAdapter;
@@ -84,13 +87,17 @@ public class Main2Activity extends AppCompatActivity {
     private gridItemAdapter mAdapter;
     private GridView gridView;
     private ProgressBar progressBar;
+    private Dialog dialog;
+    private TextView textView;
 
     private Switch aSwitch;
     private Button button;
+    private Button calldialog;
 
     private boolean scanning = false;
     private boolean stateChanged = false;
     private boolean identityChecked = false;
+    private Boolean activeNet = false;
 
     private SimpleDateFormat sdf;
 
@@ -108,13 +115,12 @@ public class Main2Activity extends AppCompatActivity {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             mBluetoothLeService = ((BluetoothLeService.LocalBinder) service).getService();
-            if(!mBluetoothLeService.initialize()) {
-                Log.d(TAG,"Could not start Bluetooth");
+            if (!mBluetoothLeService.initialize()) {
+                Log.d(TAG, "Could not start Bluetooth");
                 Toast.makeText(getApplicationContext(),
                         "Bluetooth failed", Toast.LENGTH_SHORT).show();
                 finish();
-            }
-            else {
+            } else {
                 Log.d(TAG, "Starting Bluetooth");
                 Toast.makeText(getApplicationContext(),
                         "Bluetooth working, ready for connection", Toast.LENGTH_SHORT).show();
@@ -254,162 +260,33 @@ public class Main2Activity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main2);
 
-        /*
-        mAWSAppSyncClient = AWSAppSyncClient.builder()
-                .context(getApplicationContext())
-                .awsConfiguration(new AWSConfiguration(getApplicationContext()))
-                .build();
-        */
-        /*sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
-        sdf.setTimeZone(TimeZone.getTimeZone("GMT"));
-        System.out.println(sdf.format(new Date())); //-prints-> 2015-01-22T03:23:26Z
+        // First Check if there is internet connection;
+        ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetwork = connectivityManager.getActiveNetworkInfo();
+        activeNet = activeNetwork != null &&
+                activeNetwork.isConnected();
 
-        AWSMobileClient.getInstance().initialize(getApplicationContext(), new Callback<UserStateDetails>() {
-            @Override
-            public void onResult(UserStateDetails userStateDetails) {
-                Log.i(TAG, "AWSMobileClient initialized. User State is " + userStateDetails.getUserState());
-            }
+        // Then, call the function that connects to the AWS.
+        AWSConnection();
 
-            @Override
-            public void onError(Exception e) {
-                Log.e(TAG, "Initialization error.", e);
-            }
-        });
-        uploadWithTransferUtility();
-        */
-        /*client = .standard()
-                .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration("http://localhost:8000", "us-east-1"))
-                .build();
-                */
-/*/////////////////////////////////////////////////////////////////////////////////////////////
-        String tableName = "Movies";
-
-        CreateTableRequest request = new CreateTableRequest(
-                Arrays.asList(new AttributeDefinition("year", ScalarAttributeType.N),
-                new AttributeDefinition("title", ScalarAttributeType.S)),
-                tableName,
-                Arrays.asList(new KeySchemaElement("year", KeyType.HASH), // Partition
-                // key
-                new KeySchemaElement("title", KeyType.RANGE)), // Sort key);
-                new ProvisionedThroughput(10L, 10L)
-        );
-
-        client = AmazonDynamoDBClient.builder().build;
-        try {
-            Log.d(TAG, "Attempting to create table; please wait...");
-            Table table = dynamoDB.createTable(tableName,
-                    Arrays.asList(new KeySchemaElement("year", KeyType.HASH), // Partition
-                            // key
-                            new KeySchemaElement("title", KeyType.RANGE)), // Sort key
-                    Arrays.asList(new AttributeDefinition("year", ScalarAttributeType.N),
-                            new AttributeDefinition("title", ScalarAttributeType.S)),
-                    new ProvisionedThroughput(10L, 10L));
-            table.waitForActive();
-            Log.d(TAG, "Success.  Table status: " + table.getDescription().getTableStatus());
-
-        }
-        catch (Exception e) {
-            Log.d(TAG, "Unable to create table: ");
-            Log.d(TAG, e.getMessage());
-        }
-        *////////////////////////////////////////////////////////////////////////////////////////////////
-
-        //CognitoCachingCredentialsProvider credentialsProvider = new CognitoCachingCredentialsProvider();
-
-
-
-        /////////////////////////////////////////////////
-        final CountDownLatch latch = new CountDownLatch(1);
-        AWSMobileClient.getInstance().initialize(getApplicationContext(), new Callback<UserStateDetails>() {
-            @Override
-            public void onResult(UserStateDetails result) {
-                Log.d(TAG, "result:" + result.getUserState());
-                latch.countDown();
-            }
-
-            @Override
-            public void onError(Exception e) {
-                Log.d(TAG, "Error:" + e);
-                latch.countDown();
-            }
-        });
-        try {
-            latch.await();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        appContext = getApplicationContext();
-        auth = AWSMobileClient.getInstance();
-        auth.signOut();
-        Log.d(TAG, String.valueOf(auth.getConfiguration()));
-        try {
-            credentialsProvider = new CognitoCachingCredentialsProvider(
-                    getApplicationContext(), // Context
-                    String.valueOf(auth.getConfiguration()
-                            .optJsonObject("CredentialsProvider")
-                            .optJSONObject("CognitoIdentity")
-                            .optJSONObject("Default")
-                            .getString("PoolId")
-
-                    ), // Identity Pool ID
-                    /////////////////////////////Have to use the logic below to get the PoolID and finally populate the credentialsprovider
-                    //Regions.US_EAST_1 // Region
-                    Regions.fromName(auth.getConfiguration()
-                        .optJsonObject("CredentialsProvider")
-                            .optJSONObject("CognitoIdentity")
-                            .optJSONObject("Default")
-                            .getString("Region")
-                    )
-            );
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-        AWSConfiguration configuration = auth.getConfiguration();
-        try {
-            Log.d(TAG, String.valueOf(configuration.optJsonObject("CredentialsProvider")
-                    .optJSONObject("CognitoIdentity")
-                    .optJSONObject("Default")
-                    .getString("PoolId")
-            ));
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-        try {
-            Log.d(TAG, String.valueOf(configuration
-                    .optJsonObject("CredentialsProvider")
-                    .optJSONObject("CognitoIdentity")
-                    .optJSONObject("Default")
-                    .getString("Region")
-            ));
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-        //Log.d(TAG, credentialsProvider.getIdentityId());
-
-        dynamoDB = new AmazonDynamoDBClient(credentialsProvider);
-
-        new getIdentity().execute("");
-
-
-                /*
-                .withKeySchema(new KeySchemaElement()
-                        .withAttributeName("year")
-                        .withKeyType(KeyType.HASH))
-
-                .withAttributeDefinitions(new AttributeDefinition()
-                        .withAttributeName()
-                )
-                */
-        //Log.d(TAG, credentialsProvider.getIdentityId());
-        //dynamoDB = new AmazonDynamoDBClient(credentialsProvider);
-        //Log.d(TAG, String.valueOf(dynamoDB.toString()));
-
-        //Log.d(TAG, String.valueOf(auth.getCredentials()));  //No credentials
-
+        // Initialize all layout items.
         aSwitch = findViewById(R.id.main2_bluetooth_switch);
+        button = (Button) findViewById(R.id.main2_refresh_button);
+        gridView = findViewById(R.id.grid);
+        progressBar = findViewById(R.id.grid_progressbar);
+        mAdapter = new gridItemAdapter(getApplicationContext(),
+                LayoutInflater.from(this));
+        gridView.setAdapter(mAdapter);
+        gridView.setClickable(true);
+
+        textView = findViewById(R.id.testtextview);
+        //textView.setMovementMethod(new ScrollingMovementMethod());
+
+        dialog = new Dialog(this);
+
+
         // Checking whether the bluetooth is active, and if not, asks for permission to activate it.
-        requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_REQUEST_FINE_LOCATION);
+        requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, PERMISSION_REQUEST_LOCATION);
         if (savedInstanceState == null) {
             mBluetoothAdapter = ((BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE))
                     .getAdapter();
@@ -425,19 +302,13 @@ public class Main2Activity extends AppCompatActivity {
                 }
             }
         }
-        button = (Button) findViewById(R.id.main2_refresh_button);
 
+        assert mBluetoothAdapter != null;
         mBluetoothLeScanner = mBluetoothAdapter.getBluetoothLeScanner();
+        if (mBluetoothLeScanner == null) {
+            Log.d(TAG, "error, mBluetoothLeScanner receive NULL");
+        }
 
-        // Initialize the gridView and link it to the adapter that will populate it.
-        gridView = findViewById(R.id.grid);
-        progressBar = findViewById(R.id.grid_progressbar);
-
-
-        mAdapter = new gridItemAdapter(getApplicationContext(),
-                LayoutInflater.from(this));
-        gridView.setAdapter(mAdapter);
-        gridView.setClickable(true);
         /* Set the itemclickListener for the gridview, in this case, onclick means to send an open
          * request for the raspberrypie since if everything works correctly the service will keep an
          * eye on all the different devices(when we have other devices, that is).
@@ -448,7 +319,7 @@ public class Main2Activity extends AppCompatActivity {
                 Log.d(TAG, "onItemClick position:" + position);
                 if (mAdapter.getConnection(position)) {
                     BluetoothGattCharacteristic characteristic = mAdapter.getItem(position, gridItemAdapter.REQ);
-                    byte[] data = {1,2,3,4,5,6,7,8,9,0};
+                    byte[] data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0};
                     characteristic.setValue(data);
                     ScanResult scanResult = (ScanResult) mAdapter.getItem(position);
                     String address = scanResult.getDevice().getAddress();
@@ -457,6 +328,7 @@ public class Main2Activity extends AppCompatActivity {
 
             }
         });
+        // Set the refresh button clickListener.
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -464,8 +336,7 @@ public class Main2Activity extends AppCompatActivity {
                     button.setBackground(getDrawable(R.drawable.ic_action_stop));
                     startScanning();
                     progressBar.setVisibility(View.VISIBLE);
-                }
-                else {
+                } else {
                     button.setBackground(getDrawable(R.drawable.ic_action_refresh));
                     stopScanning();
                     progressBar.setVisibility(View.GONE);
@@ -478,21 +349,20 @@ public class Main2Activity extends AppCompatActivity {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 if (!isChecked) {
-                    if (progressBar.getVisibility()==View.VISIBLE) {
+                    if (progressBar.getVisibility() == View.VISIBLE) {
                         if (button.performClick()) {
                             Log.d(TAG, "button clicked.");
                         }
                     }
                     mBluetoothAdapter.disable();
                     button.setVisibility(View.INVISIBLE);
-                    for (int i=0; i<mAdapter.getCount(); i++ ) {
+                    for (int i = 0; i < mAdapter.getCount(); i++) {
                         mAdapter.setConnection(i, false);
                         mAdapter.setStrikeNull(i);
                         mAdapter.setDoorNull(i);
                     }
                     mAdapter.notifyDataSetChanged();
-                }
-                else {
+                } else {
                     mBluetoothAdapter.enable();
                     button.setVisibility(View.VISIBLE);
                 }
@@ -501,286 +371,86 @@ public class Main2Activity extends AppCompatActivity {
         final Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
 
-        /*
-        runMutation();
-        runQuery();
-        subscribe();
-        */
-        //getApplicationContext().startService(new Intent(getApplicationContext(), TransferService.class));
-
     }
 
-    private class getIdentity extends AsyncTask<String, Void, String> {
+    private List<itemWithDate> getTable() {
+        Log.d(TAG, String.valueOf(dynamoDB.listTables()));
+        Log.d(TAG, String.valueOf(dynamoDB.describeTable("maglock-door1")));
+        Table table = Table.loadTable(dynamoDB, "maglock-door1");
+        Log.d(TAG, "Hashkeys:" + String.valueOf(table.getHashKeys()));
+        Log.d(TAG, "Rangekeys:" + String.valueOf(table.getRangeKeys()));
 
-        @Override
-        protected String doInBackground(String... strings) {
-            Log.d(TAG, "getIdentity:" + credentialsProvider.getIdentityId());
+        Condition notNullCondition = new Condition()
+                .withComparisonOperator(ComparisonOperator.NOT_NULL);
+        Map<String, Condition> keyConditions = new HashMap<>();
+        keyConditions.put("date", notNullCondition);
+        keyConditions.put("priority", notNullCondition);
+        keyConditions.put("event", notNullCondition);
 
-            /*
-            String tableName = "Movies";
+        List<itemWithDate> withDateArrayList = new ArrayList<>();
+        Map<String, AttributeValue> lastEvaluatedKey = null;
 
-            CreateTableRequest request = new CreateTableRequest()
-                    .withTableName(tableName)
-                    .withKeySchema(Arrays.asList(
-                            new KeySchemaElement()
-                                    .withAttributeName("year")
-                                    .withKeyType(KeyType.HASH),
-                            new KeySchemaElement()
-                                    .withAttributeName("title")
-                                    .withKeyType(KeyType.RANGE)
-                    ))
-                    .withAttributeDefinitions(Arrays.asList(
-                            new AttributeDefinition()
-                                    .withAttributeName("year")
-                                    .withAttributeType(ScalarAttributeType.N),
-                            new AttributeDefinition()
-                                    .withAttributeName("title")
-                                    .withAttributeType(ScalarAttributeType.S)
-                    ));
-            request.setProvisionedThroughput(new ProvisionedThroughput()
-                    .withReadCapacityUnits(10L)
-                    .withWriteCapacityUnits(10L)
-            );
+        do {
+            ScanRequest scanRequest = new ScanRequest()
+                    .withTableName("maglock-door1")
+                    .withExclusiveStartKey(lastEvaluatedKey)
+                    .withScanFilter(keyConditions)
+                    .withConsistentRead(true);
+            com.amazonaws.services.dynamodbv2.model.ScanResult scanResult = dynamoDB.scan(scanRequest);
 
-            final TableDescription tableDescription = dynamoDB
-                    .createTable(request)
-                    .getTableDescription();
+            for (Map<String, AttributeValue> item : scanResult.getItems()) {
+                itemWithDate tempItem = new itemWithDate();
+                String event = item.get("event").getS();
+                String date = item.get("date").getS();
+                String priority = item.get("priority").getN();
 
-            Tables.waitForTableToBecomeActive(dynamoDB, tableName);
-            */
-
-            Log.d(TAG, String.valueOf(dynamoDB.listTables()));
-            Log.d(TAG, String.valueOf(dynamoDB.describeTable("maglock-door1")));
-            Table table = Table.loadTable(dynamoDB, "maglock-door1");
-            Log.d(TAG, "Hashkeys:" + String.valueOf(table.getHashKeys()));
-            Log.d(TAG, "Rangekeys:" + String.valueOf(table.getRangeKeys()));
-            List<String> keys = table.getHashKeys();
-            Search document = table.query(new Primitive("date"));
-            Log.d(TAG, "Document:" + document.getAllResults());
-            /*ScanRequest scanRequest = new ScanRequest()
-                    .withProjectionExpression("date");
-            ScanOperationConfig scan = new ScanOperationConfig()
-                    .withAttributesToGet(Collections.singletonList("date"));
-            Expression keyExp = new Expression();
-
-            QueryOperationConfig queryOperationConfig = new QueryOperationConfig();
-            queryOperationConfig.withLimit(1);
-            queryOperationConfig.withAttributesToGet(Collections.singletonList("date"));
-            queryOperationConfig.withBackwardSearch(true);
-                //QueryFilter filter = new QueryFilter("date", Filter.FilterCondition (ComparisonOperator.NOT_NULL));
-            Filter filter1;
-            QueryRequest queryRequest = new QueryRequest()
-                    .withTableName("maglock-door1");
-            //queryRequest.setFilterExpression("attribute_exists(date)");
-            //queryRequest.addKeyConditionsEntry("date", new Condition().withComparisonOperator(ComparisonOperator.NOT_NULL));
-            queryRequest.withScanIndexForward(false);
-            queryRequest.withAttributesToGet("date");
-            queryRequest.withLimit(1);
-
-                //queryOperationConfig.withFilter(filter);
-            queryOperationConfig.withConsistentRead(true);
-            GetItemOperationConfig config = new GetItemOperationConfig();
-*/
-            /*QueryFilter filter = new QueryFilter(
-                    "priority",
-                    ComparisonOperator.EQ,
-                    Collections.singletonList(new AttributeValue().withN("3"))
-            );
-            QueryOperationConfig config = new QueryOperationConfig()
-                    .withBackwardSearch(true)
-                    .withFilter(filter)
-                    .withLimit(5);
-            Search search = table.query(config);*/
-
-            Condition haskKeyCondition = new Condition()
-                    .withComparisonOperator(ComparisonOperator.NOT_NULL);
-            Map<String, Condition> keyConditions = new HashMap<>();
-            keyConditions.put("date", haskKeyCondition);
-            keyConditions.put("priority", haskKeyCondition);
-
-            Map<String, AttributeValue> lastEvaluatedKey = null;
-            do {
-                ScanRequest scanRequest = new ScanRequest()
-                        .withTableName("maglock-door1")
-                        .withExclusiveStartKey(lastEvaluatedKey)
-                        .withScanFilter(keyConditions)
-                        .withConsistentRead(true);
-                QueryRequest request = new QueryRequest()
-                        .withTableName("maglock-door1")
-                        .withKeyConditions(keyConditions)
-                        .withExclusiveStartKey(lastEvaluatedKey);
-                com.amazonaws.services.dynamodbv2.model.ScanResult scanResult = dynamoDB.scan(scanRequest);
-                Log.d(TAG, scanRequest + ":" + scanResult);
-                Log.d(TAG, "scanResult.getCount():" + scanResult.getCount() );
-                Log.d(TAG, "scanResult.getScannedCount():" + scanResult.getScannedCount() );
-                List<Map<String, AttributeValue>> itemMap = new ArrayList<>();
-                //Map<Date, Map<String, AttributeValue>> itemMap2 = new ArrayMap<>();
-                List<itemWithDate> withDateArrayList = new ArrayList<>();
-                itemMap = scanResult.getItems();
-                for (Map<String, AttributeValue> item : scanResult.getItems()) {
-                    String value = item.get("event").getS();
-                    String date = item.get("date").getS();
-                    String priority = item.get("priority").getN();
-                    Log.d(TAG, "(" + priority + ")" + date + ":" + value);
+                String dateCut = date.substring(0, 19);
+                Date date1;
+                String mili = date.substring(20);
+                int mili1;
+                try {
+                    date1 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).parse(dateCut);
+                    mili1 = Integer.parseInt(mili);
+                    tempItem.date = date1;
+                    tempItem.milis = mili1;
+                    tempItem.item = item;
+                    withDateArrayList.add(tempItem);
+                } catch (ParseException e) {
+                    e.printStackTrace();
                 }
-                for (Map<String, AttributeValue> item : itemMap) {
-                    itemWithDate tempItem = new itemWithDate();
-                    String event = item.get("event").getS();
-                    String date = item.get("date").getS();
-                    String dateCut = date.substring(0,19);
-                    Date date1;
-                    String mili = date.substring(20);
-                    int mili1;
-                    try {
-                         date1 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(dateCut);
-                         mili1 = Integer.parseInt(mili);
-                         tempItem.date = date1;
-                         tempItem.milis = mili1;
-                         tempItem.item = item;
-                         withDateArrayList.add(tempItem);
-                    } catch (ParseException e) {
-                        e.printStackTrace();
+                Log.d(TAG, event + "-" + date + "(" + priority + ")");
+            }
+            for (int i = 0; i < withDateArrayList.size(); i++) {
+                Log.d(TAG, withDateArrayList.get(i).date.toString());
+            }
+            Collections.sort(withDateArrayList, new Comparator<itemWithDate>() {
+                @Override
+                public int compare(itemWithDate o1, itemWithDate o2) {
+                    // 1<2:-1
+                    // 1==2:0
+                    // 1>2:1
+                    if (o1.date == null || o2.date == null) {
+                        return 0;
+                    } else if (o1.date.before(o2.date)) {
+                        return -1;
+                    } else if (o1.date.after(o2.date)) {
+                        return 1;
+                    } else {
+                        return o1.milis.compareTo(o2.milis);
                     }
-                    String priority = item.get("priority").getN();
-                    Log.d(TAG, event + "-" + date + "(" + priority + ")");
                 }
-                for (int i=0; i<withDateArrayList.size(); i++) {
-                    Log.d(TAG, withDateArrayList.get(i).date.toString());
-                }
-                Collections.sort(withDateArrayList, new Comparator<itemWithDate>() {
-                    @Override
-                    public int compare(itemWithDate o1, itemWithDate o2) {
-                        // 1<2:-1
-                        // 1==2:0
-                        // 1>2:1
-                        if (o1.date == null || o2.date == null) {
-                            return 0;
-                        }
-                        else if (o1.date.before(o2.date)) {
-                            return -1;
-                        } else if (o1.date.after(o2.date)) {
-                            return 1;
-                        } else {
-                            return o1.milis.compareTo(o2.milis);
-                        }
-                    }
-                });
-                Log.d(TAG, withDateArrayList.toString());
-                for (int i=0; i<withDateArrayList.size(); i++) {
-                    Log.d(TAG, withDateArrayList.get(i).date.toString() + "-" + withDateArrayList.get(i).item.get("event").getS());
-                    Log.d(TAG, "------------------------------------------------------------------------------------------------");
-                }
-                lastEvaluatedKey = scanResult.getLastEvaluatedKey();
-                /*QueryResult result = dynamoDB.query(request);
-                Log.d(TAG, request + ":" + result);
-                for (Map<String, AttributeValue> item : result.getItems()) {
-                    String value = item.get("event").getS();
-                    Log.d(TAG, "date:" + value);
-                }
-                lastEvaluatedKey = result.getLastEvaluatedKey();*/
-
-            } while (lastEvaluatedKey != null);
-////////////////////////////////////////////////////////////////////////////// NOT YET WORKING
-            //Search search = table.scan(scan);
-            //Log.d(TAG, "Search" + search.getAllResults());
-            //Search search1 = table.query(queryOperationConfig);
-            //Log.d(TAG, "Search1" + search1.getCount());
-            //////////////////////// Failed as well
-            //QueryResult result = dynamoDB.query(queryRequest);
-            //Log.d(TAG, "result1:" + result.toString());
-            return null;
-        }
+            });
+            Log.d(TAG, withDateArrayList.toString());
+            for (int i = 0; i < withDateArrayList.size(); i++) {
+                Log.d(TAG,withDateArrayList.get(i).date.toString() + "-" +
+                                withDateArrayList.get(i).item.get("event").getS()
+                );
+                Log.d(TAG, "------------------------------------------------");
+            }
+            lastEvaluatedKey = scanResult.getLastEvaluatedKey();
+        } while (lastEvaluatedKey != null);
+        return withDateArrayList;
     }
-    /*public File addTextToFile(String text) {
-
-        File myDir = getApplicationContext().getFilesDir();
-        Log.d(TAG, myDir.getPath());
-        // Documents Path
-        String documents = "documents/data";
-        File documentsFolder = new File(myDir, documents);
-        Log.d(TAG, documentsFolder.getPath());
-        boolean created = documentsFolder.mkdirs();
-        Log.d(TAG, "folder create? " + created);
-
-
-        File logFile = new File(documentsFolder.getPath() + "/testfile.txt");
-        Log.d(TAG, logFile.getPath());
-        if (!logFile.exists()) {
-            try {
-                //new File(logFile.getParent()).mkdirs();
-                logFile.createNewFile();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        try {
-            BufferedWriter buf = new BufferedWriter(new FileWriter(logFile, true));
-            buf.append(text);
-            buf.newLine();
-            buf.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return logFile;
-    }
-
-    private void uploadWithTransferUtility() {
-
-        File file = addTextToFile(String.valueOf(new Date()));
-        String path = file.getPath();
-
-        TransferUtility transferUtility =
-                TransferUtility.builder()
-                        .context(getApplicationContext())
-                        .awsConfiguration(AWSMobileClient.getInstance().getConfiguration())
-                        .s3Client(new AmazonS3Client(AWSMobileClient.getInstance()))
-                        .build();
-
-        TransferObserver uploadObserver =
-                transferUtility.upload(
-                        "nepu",
-                        "public/testfile.txt",
-                        new File(path));
-
-        // Attach a listener to the observer to get state update and progress notifications
-        uploadObserver.setTransferListener(new TransferListener() {
-
-            @Override
-            public void onStateChanged(int id, TransferState state) {
-                if (TransferState.COMPLETED == state) {
-                    // Handle a completed upload.
-                    Log.d(TAG, "Upload complete");
-                }
-            }
-
-            @Override
-            public void onProgressChanged(int id, long bytesCurrent, long bytesTotal) {
-                float percentDonef = ((float) bytesCurrent / (float) bytesTotal) * 100;
-                int percentDone = (int)percentDonef;
-
-                Log.d("YourActivity", "ID:" + id + " bytesCurrent: " + bytesCurrent
-                        + " bytesTotal: " + bytesTotal + " " + percentDone + "%");
-            }
-
-            @Override
-            public void onError(int id, Exception ex) {
-                // Handle errors
-                Log.d(TAG, "Error:" + ex);
-            }
-
-        });
-
-        // If you prefer to poll for the data, instead of attaching a
-        // listener, check for the state and progress in the observer.
-        if (TransferState.COMPLETED == uploadObserver.getState()) {
-            // Handle a completed upload.
-            Log.d(TAG, "Upload complete, no listener");
-
-        }
-
-        Log.d("YourActivity", "Bytes Transferred: " + uploadObserver.getBytesTransferred());
-        Log.d("YourActivity", "Bytes Total: " + uploadObserver.getBytesTotal());
-    }*/
 
     @Override
     protected void onResume() {
@@ -814,12 +484,12 @@ public class Main2Activity extends AppCompatActivity {
         if (requestCode == Constants.REQUEST_ENABLE_BT) {
             if (resultCode == RESULT_OK) {
                 aSwitch.setChecked(true);
-            }
-            else {
+            } else {
                 aSwitch.setChecked(false);
             }
         }
     }
+
     private List<ScanFilter> buildScanFilters() {
         List<ScanFilter> scanFilters = new ArrayList<>();
 
@@ -840,6 +510,7 @@ public class Main2Activity extends AppCompatActivity {
         //builder.setReportDelay(1000);
         return builder.build();
     }
+
     public void startScanning() {
         if (mScanCallback == null) {
             Log.d(TAG, "Starting Scanning");
@@ -853,6 +524,7 @@ public class Main2Activity extends AppCompatActivity {
         }
         invalidateOptionsMenu();
     }
+
     public void stopScanning() {
         Log.d(TAG, "Stopping Scanning");
 
@@ -875,15 +547,14 @@ public class Main2Activity extends AppCompatActivity {
             if (parcelUuids == null) {
                 Log.d(TAG, "No ServiceUUIDs, returning.");
                 return;
-            }
-            else {
-                Log.d(TAG, "Device:"+result.getScanRecord().getDeviceName());
+            } else {
+                Log.d(TAG, "Device:" + result.getScanRecord().getDeviceName());
                 for (ParcelUuid uuid : parcelUuids) {
                     Log.d(TAG, "uuid:" + uuid.toString());
                 }
             }
             if (hasMyService(result.getScanRecord())) {
-                if (mAdapter.getPosition(result.getDevice().getAddress())==-1) {
+                if (mAdapter.getPosition(result.getDevice().getAddress()) == -1) {
                     mAdapter.add(result);
                     mBluetoothLeService.connect(result.getDevice().getAddress());
 
@@ -893,25 +564,22 @@ public class Main2Activity extends AppCompatActivity {
                     if (count == 0) {
                         params.height = 10;
                         params.width = 10;
-                    }
-                    else if (count < 4) {
+                    } else if (count < 4) {
                         gridView.setNumColumns(count);
                         params.height = base;
-                        params.width = (base)*count;
-                    }
-                    else {
+                        params.width = (base) * count;
+                    } else {
                         int major, minor;
-                        major = count/3;
-                        minor = count%3;
+                        major = count / 3;
+                        minor = count % 3;
                         if (minor != 0) {
                             major++;
                         }
-                        params.height = (base)*major;
+                        params.height = (base) * major;
                     }
                     gridView.setLayoutParams(params);
                     gridView.invalidate();
-                }
-                else {
+                } else {
                     mAdapter.add(result);
                 }
             }
@@ -923,7 +591,7 @@ public class Main2Activity extends AppCompatActivity {
     }
 
     private void getGattServices(List<BluetoothGattService> supportedGattServices, int position) {
-        if (supportedGattServices==null) return;
+        if (supportedGattServices == null) return;
 
         String uuid = null;
         String unknownServiceString = getResources().getString(R.string.unknown_service);
@@ -931,7 +599,7 @@ public class Main2Activity extends AppCompatActivity {
         ArrayList<HashMap<String, String>> gattServiceData = new ArrayList<>();
         ArrayList<ArrayList<HashMap<String, String>>> gattCharacteristicData = new ArrayList<>();
 
-        for (BluetoothGattService service:supportedGattServices) {
+        for (BluetoothGattService service : supportedGattServices) {
             if (service.getUuid().equals(SampleGattAttributes.DOOR_SERVICE_UUID)) {
                 mAdapter.addCharacteristics(position,
                         service.getCharacteristic(SampleGattAttributes.DOOR_CONTACT_CHARACTERISTIC),
@@ -950,10 +618,82 @@ public class Main2Activity extends AppCompatActivity {
         return (int) (value * Resources.getSystem().getDisplayMetrics().density + 0.5f);
     }
 
+    private void AWSConnection() {
+        // If there is no internet, don't bother.
+        if (!activeNet) return;
+        // Otherwise, connect to the AWS.
+        else {
+            final CountDownLatch latch = new CountDownLatch(1);
+            AWSMobileClient.getInstance().initialize(getApplicationContext(), new Callback<UserStateDetails>() {
+                @Override
+                public void onResult(UserStateDetails result) {
+                    Log.d(TAG, "result:" + result.getUserState());
+                    latch.countDown();
+                }
+
+                @Override
+                public void onError(Exception e) {
+                    Log.d(TAG, "Error:" + e);
+                    latch.countDown();
+                }
+            });
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            appContext = getApplicationContext();
+            auth = AWSMobileClient.getInstance();
+            auth.signOut();
+            try {
+                credentialsProvider = new CognitoCachingCredentialsProvider(
+                        getApplicationContext(), // Context
+                        String.valueOf(auth.getConfiguration()
+                                .optJsonObject("CredentialsProvider")
+                                .optJSONObject("CognitoIdentity")
+                                .optJSONObject("Default")
+                                .getString("PoolId")
+
+                        ), // Identity Pool ID
+                        Regions.fromName(auth.getConfiguration()
+                                .optJsonObject("CredentialsProvider")
+                                .optJSONObject("CognitoIdentity")
+                                .optJSONObject("Default")
+                                .getString("Region")
+                        )
+                );
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            dynamoDB = new AmazonDynamoDBClient(credentialsProvider);
+            new getIdentity().execute(credentialsProvider);
+        }
+    }
     class itemWithDate {
         Date date;
         Integer milis;
         Map<String, AttributeValue> item;
     }
-};
 
+    public void callingDialog(View view) {
+
+        dialog.setContentView(R.layout.popupwindow);
+        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        dialog.show();
+    }
+}
+class getIdentity extends AsyncTask<CognitoCachingCredentialsProvider, Void, String> {
+
+    @Override
+    protected String doInBackground(CognitoCachingCredentialsProvider... cognitoCachingCredentialsProviders) {
+        return cognitoCachingCredentialsProviders[0].getIdentityId();
+    }
+
+    @Override
+    protected void onPostExecute(String s) {
+        if (s!=null) {
+            Log.d("Identity", "Success:" + s);
+        }
+        else Log.d("Identity", "getIdentityId failed - return null");
+    }
+}
