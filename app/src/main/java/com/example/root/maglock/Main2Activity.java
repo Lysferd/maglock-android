@@ -30,6 +30,7 @@ import android.os.IBinder;
 import android.os.ParcelUuid;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.CardView;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -39,6 +40,7 @@ import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.GridView;
 import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -48,20 +50,21 @@ import com.amazonaws.mobile.client.AWSMobileClient;
 import com.amazonaws.mobile.client.Callback;
 import com.amazonaws.mobile.client.UserStateDetails;
 import com.amazonaws.mobile.client.UserStateListener;
-import com.amazonaws.mobileconnectors.dynamodbv2.document.Table;
 import com.amazonaws.regions.Regions;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsyncClient;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.dynamodbv2.model.ComparisonOperator;
 import com.amazonaws.services.dynamodbv2.model.Condition;
 import com.amazonaws.services.dynamodbv2.model.ScanRequest;
 
+import org.apache.commons.lang3.time.DateUtils;
 import org.json.JSONException;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
@@ -92,23 +95,25 @@ public class Main2Activity extends AppCompatActivity {
 
     private Switch aSwitch;
     private Button button;
-    private Button calldialog;
 
     private boolean scanning = false;
     private boolean stateChanged = false;
     private boolean identityChecked = false;
+    private volatile boolean taskComplete = false;
     private Boolean activeNet = false;
 
     private SimpleDateFormat sdf;
 
     private AmazonDynamoDBClient client;
-    private AmazonDynamoDB dynamoDB;
+    private AmazonDynamoDBAsyncClient dynamoDB;
 
     private Context appContext;
     private AWSMobileClient auth;
     private UserStateListener listener;
 
     private CognitoCachingCredentialsProvider credentialsProvider;
+
+    private List<itemWithDate> doorEventsList;
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
 
@@ -278,12 +283,8 @@ public class Main2Activity extends AppCompatActivity {
                 LayoutInflater.from(this));
         gridView.setAdapter(mAdapter);
         gridView.setClickable(true);
-
-        textView = findViewById(R.id.testtextview);
-        //textView.setMovementMethod(new ScrollingMovementMethod());
-
+        gridView.setContextClickable(true);
         dialog = new Dialog(this);
-
 
         // Checking whether the bluetooth is active, and if not, asks for permission to activate it.
         requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, PERMISSION_REQUEST_LOCATION);
@@ -372,14 +373,22 @@ public class Main2Activity extends AppCompatActivity {
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
 
     }
-
+/*
+    @Override
+    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
+        if (v.getId() == R.id.grid) {
+            AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) menuInfo;
+            menu.setHeaderTitle()
+        }
+    }
+*/
     private List<itemWithDate> getTable() {
-        Log.d(TAG, String.valueOf(dynamoDB.listTables()));
+        /*Log.d(TAG, String.valueOf(dynamoDB.listTables()));
         Log.d(TAG, String.valueOf(dynamoDB.describeTable("maglock-door1")));
         Table table = Table.loadTable(dynamoDB, "maglock-door1");
         Log.d(TAG, "Hashkeys:" + String.valueOf(table.getHashKeys()));
         Log.d(TAG, "Rangekeys:" + String.valueOf(table.getRangeKeys()));
-
+*/
         Condition notNullCondition = new Condition()
                 .withComparisonOperator(ComparisonOperator.NOT_NULL);
         Map<String, Condition> keyConditions = new HashMap<>();
@@ -440,6 +449,7 @@ public class Main2Activity extends AppCompatActivity {
                     }
                 }
             });
+            Collections.reverse(withDateArrayList);
             Log.d(TAG, withDateArrayList.toString());
             for (int i = 0; i < withDateArrayList.size(); i++) {
                 Log.d(TAG,withDateArrayList.get(i).date.toString() + "-" +
@@ -665,7 +675,7 @@ public class Main2Activity extends AppCompatActivity {
             } catch (JSONException e) {
                 e.printStackTrace();
             }
-            dynamoDB = new AmazonDynamoDBClient(credentialsProvider);
+            dynamoDB = new AmazonDynamoDBAsyncClient(credentialsProvider);
             new getIdentity().execute(credentialsProvider);
         }
     }
@@ -679,7 +689,60 @@ public class Main2Activity extends AppCompatActivity {
 
         dialog.setContentView(R.layout.popupwindow);
         dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        textView = dialog.findViewById(R.id.testtextview);
+        CardView cardView = dialog.findViewById(R.id.dialog);
+        ViewGroup.LayoutParams params = cardView.getLayoutParams();
+        params.height = (int) (Resources.getSystem().getDisplayMetrics().heightPixels * 0.8);
+        params.width = (int) (Resources.getSystem().getDisplayMetrics().widthPixels * 0.8);
+        cardView.setLayoutParams(params);
+        ViewGroup.LayoutParams textParams = textView.getLayoutParams();
+        textParams.height = (int) (params.height * 0.9);
+        textParams.width = (int) (params.width * 0.9);
+        textView.setLayoutParams(textParams);
+        ScrollView scrollView = dialog.findViewById(R.id.scrollview);
+        ViewGroup.LayoutParams scrollparams = scrollView.getLayoutParams();
+        scrollparams.width = textParams.width;
+        scrollparams.height = textParams.height;
+        scrollView.setLayoutParams(scrollparams);
+        //textView.setMovementMethod(new ScrollingMovementMethod());
+
+        doorEventsList = new ArrayList<>();
+
+        taskComplete = false;
+        new AsyncTask<List<Void>, Void, Void>() {
+            @Override
+            protected Void doInBackground(List<Void>... lists) {
+                doorEventsList = getTable();
+                taskComplete = true;
+                return null;
+            }
+        }.execute();
+        //Log.d(TAG, dynamoDB.listTables().toString());
+        while (!taskComplete);
+        StringBuilder builder = new StringBuilder();
+        int i = 1;
+        for (itemWithDate withDate : doorEventsList) {
+
+            Calendar calendar = DateUtils.toCalendar(withDate.date);
+
+            builder.append(calendar.get(Calendar.DATE)).append("/");
+            builder.append(calendar.get(Calendar.MONTH)+1).append("/");
+            builder.append(calendar.get(Calendar.YEAR)).append(" ");
+            builder.append(calendar.get(Calendar.HOUR_OF_DAY)).append(":");
+            builder.append(calendar.get(Calendar.MINUTE)).append(":");
+            builder.append(calendar.get(Calendar.SECOND)).append("\n");
+
+            //builder.append(withDate.date).append("\n");
+
+            builder.append(withDate.item.get("event").getS()).append("\n");
+            builder.append("\n");
+        }
+        textView.setText(builder.toString());
+
         dialog.show();
+    }
+    public void closeDialog(View view) {
+        dialog.dismiss();
     }
 }
 class getIdentity extends AsyncTask<CognitoCachingCredentialsProvider, Void, String> {
