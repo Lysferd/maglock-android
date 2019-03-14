@@ -32,7 +32,10 @@ import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.CardView;
 import android.util.Log;
+import android.view.ContextMenu;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -72,11 +75,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 
 import static com.example.root.maglock.SearchActivity.hasMyService;
-
-//import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 
 public class Main2Activity extends AppCompatActivity {
     private static String TAG = "MAGLOCK." + Main2Activity.class.getSimpleName();
@@ -285,30 +287,10 @@ public class Main2Activity extends AppCompatActivity {
         gridView.setClickable(true);
         gridView.setContextClickable(true);
         dialog = new Dialog(this);
+        registerForContextMenu(gridView);
 
-        // Checking whether the bluetooth is active, and if not, asks for permission to activate it.
-        requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, PERMISSION_REQUEST_LOCATION);
-        if (savedInstanceState == null) {
-            mBluetoothAdapter = ((BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE))
-                    .getAdapter();
-            // Is Bluetooth supported on this device?
-            if (mBluetoothAdapter != null) {
-                // Is Bluetooth turned on?
-                if (mBluetoothAdapter.isEnabled()) {
-                    aSwitch.setChecked(true);
-                } else {
-                    // Prompt user to turn on Bluetooth (logic continues in onActivityResult()).
-                    Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-                    startActivityForResult(enableBtIntent, Constants.REQUEST_ENABLE_BT);
-                }
-            }
-        }
 
-        assert mBluetoothAdapter != null;
-        mBluetoothLeScanner = mBluetoothAdapter.getBluetoothLeScanner();
-        if (mBluetoothLeScanner == null) {
-            Log.d(TAG, "error, mBluetoothLeScanner receive NULL");
-        }
+
 
         /* Set the itemclickListener for the gridview, in this case, onclick means to send an open
          * request for the raspberrypie since if everything works correctly the service will keep an
@@ -334,9 +316,15 @@ public class Main2Activity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 if (!scanning) {
-                    button.setBackground(getDrawable(R.drawable.ic_action_stop));
-                    startScanning();
-                    progressBar.setVisibility(View.VISIBLE);
+                    if (mBluetoothLeScanner == null) {
+                        Toast.makeText(getApplicationContext(), "Scanner not yet ready, try again", Toast.LENGTH_SHORT).show();
+                        mBluetoothLeScanner = mBluetoothAdapter.getBluetoothLeScanner();
+                    }
+                    else {
+                        button.setBackground(getDrawable(R.drawable.ic_action_stop));
+                        startScanning();
+                        progressBar.setVisibility(View.VISIBLE);
+                    }
                 } else {
                     button.setBackground(getDrawable(R.drawable.ic_action_refresh));
                     stopScanning();
@@ -369,19 +357,60 @@ public class Main2Activity extends AppCompatActivity {
                 }
             }
         });
+
+        // Checking whether the bluetooth is active, and if not, asks for permission to activate it.
+        requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, PERMISSION_REQUEST_LOCATION);
+        if (savedInstanceState == null) {
+            mBluetoothAdapter = ((BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE))
+                    .getAdapter();
+            // Is Bluetooth supported on this device?
+            if (mBluetoothAdapter != null) {
+                // Is Bluetooth turned on?
+                if (mBluetoothAdapter.isEnabled()) {
+                    aSwitch.setChecked(true);
+                } else {
+                    // Prompt user to turn on Bluetooth (logic continues in onActivityResult()).
+                    button.setVisibility(View.INVISIBLE);
+                    Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                    startActivityForResult(enableBtIntent, Constants.REQUEST_ENABLE_BT);
+                }
+            }
+        }
+
+        assert mBluetoothAdapter != null;
+        mBluetoothLeScanner = mBluetoothAdapter.getBluetoothLeScanner();
+        if (mBluetoothLeScanner == null) {
+            Log.d(TAG, "error, mBluetoothLeScanner receive NULL");
+        }
+
+
         final Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
 
     }
-/*
+
     @Override
     public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
         if (v.getId() == R.id.grid) {
             AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) menuInfo;
-            menu.setHeaderTitle()
+            ScanResult res = (ScanResult) mAdapter.getItem(info.position);
+            menu.setHeaderTitle(Objects.requireNonNull(res.getScanRecord()).getDeviceName());
+            String[] menuItems = getResources().getStringArray(R.array.menu);
+            for (int i = 0; i<menuItems.length; i++) {
+                menu.add(Menu.NONE, i, i, menuItems[i]);
+            }
         }
     }
-*/
+
+    @Override
+    public boolean onContextItemSelected(MenuItem item) {
+        if (item.getItemId() == 0) {
+            Toast.makeText(getApplicationContext(), "Loading Event Log", Toast.LENGTH_SHORT).show();
+            callingDialog(getCurrentFocus());
+        }
+        return super.onContextItemSelected(item);
+    }
+
     private List<itemWithDate> getTable() {
         /*Log.d(TAG, String.valueOf(dynamoDB.listTables()));
         Log.d(TAG, String.valueOf(dynamoDB.describeTable("maglock-door1")));
@@ -521,18 +550,23 @@ public class Main2Activity extends AppCompatActivity {
         return builder.build();
     }
 
-    public void startScanning() {
+    public boolean startScanning() {
         if (mScanCallback == null) {
             Log.d(TAG, "Starting Scanning");
 
             mScanCallback = new SampleScanCallback();
             scanning = true;
+            if (mBluetoothLeScanner==null){
+                Log.d(TAG, "Scanner NUll, waiting");
+                return false;
+            }
             mBluetoothLeScanner.startScan(buildScanFilters(), buildScanSettings(), mScanCallback);
 
         } else {
             Toast.makeText(this, R.string.already_scanning, Toast.LENGTH_LONG).show();
         }
         invalidateOptionsMenu();
+        return true;
     }
 
     public void stopScanning() {
@@ -552,6 +586,7 @@ public class Main2Activity extends AppCompatActivity {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             super.onScanResult(callbackType, result);
+
             //noinspection ConstantConditions
             List<ParcelUuid> parcelUuids = result.getScanRecord().getServiceUuids();
             if (parcelUuids == null) {
@@ -566,11 +601,12 @@ public class Main2Activity extends AppCompatActivity {
             if (hasMyService(result.getScanRecord())) {
                 if (mAdapter.getPosition(result.getDevice().getAddress()) == -1) {
                     mAdapter.add(result);
-                    mBluetoothLeService.connect(result.getDevice().getAddress());
+                    //mBluetoothLeService.connect(result.getDevice().getAddress());
 
                     int count = mAdapter.getCount();
                     int base = dp(100);
                     ViewGroup.LayoutParams params = gridView.getLayoutParams();
+
                     if (count == 0) {
                         params.height = 10;
                         params.width = 10;

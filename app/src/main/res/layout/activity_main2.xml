@@ -2,51 +2,61 @@
 <android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".Main2Activity"
-    android:id="@+id/main">
+    tools:context=".Main2Activity">
+
     <Button
+        android:id="@+id/button7"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:onClick="callingDialog"
         android:text="call dialog"
-        android:onClick="callingDialog"/>
-    <FrameLayout
-        android:id="@+id/main2_framelayout"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/main2_refresh_button"
-        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        >
+        app:layout_constraintStart_toStartOf="parent" />
 
-        <GridView
-            android:id="@+id/grid"
-            android:layout_width="100dp"
-            android:layout_height="100dp"
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_constraintBottom_toTopOf="@id/main2_refresh_button"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
 
-            android:gravity="center"
+        <FrameLayout
+            android:id="@+id/main2_framelayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            >
+
+            <GridView
+                android:id="@+id/grid"
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+
+                android:gravity="center"
+                android:layout_gravity="center"
 
 
-            app:layout_constraintBottom_toTopOf="@+id/main2_bluetooth_switch"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:listitem="@layout/griditem" />
-    </FrameLayout>
+                app:layout_constraintBottom_toTopOf="@+id/main2_bluetooth_switch"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                tools:listitem="@layout/griditem" />
+        </FrameLayout>
+    </ScrollView>
+
     <Switch
         android:id="@+id/main2_bluetooth_switch"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/bluetoothswitchtext"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toTopOf="@id/main2_refresh_button"
         app:layout_constraintEnd_toEndOf="parent"
-        />
+        app:layout_constraintTop_toTopOf="@id/main2_refresh_button" />
 
     <Button
         android:id="@+id/main2_refresh_button"
@@ -56,11 +66,12 @@
         app:layout_constraintBottom_toBottomOf="parent"
 
         app:layout_constraintStart_toStartOf="parent" />
+
     <ProgressBar
         android:id="@+id/grid_progressbar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toEndOf="@id/main2_refresh_button"
-        android:visibility="gone" />
+        app:layout_constraintStart_toEndOf="@id/main2_refresh_button" />
 </android.support.constraint.ConstraintLayout>
