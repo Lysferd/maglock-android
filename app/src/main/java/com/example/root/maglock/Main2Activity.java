@@ -26,6 +26,7 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.ParcelUuid;
 import android.support.annotation.Nullable;
@@ -405,8 +406,23 @@ public class Main2Activity extends AppCompatActivity {
     @Override
     public boolean onContextItemSelected(MenuItem item) {
         if (item.getItemId() == 0) {
-            Toast.makeText(getApplicationContext(), "Loading Event Log", Toast.LENGTH_SHORT).show();
-            callingDialog(getCurrentFocus());
+            Handler handler = new Handler();
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(getApplicationContext(), "Loading Event Log", Toast.LENGTH_SHORT).show();
+                }
+            });
+
+            new callingDialogAgain().execute();
+            /*new AsyncTask<Void, Void, Void>() {
+                @Override
+                protected Void doInBackground(Void... voids) {
+                    callingDialog(getCurrentFocus());
+                    return null;
+                }
+            }.execute();*/
+            //callingDialog2(getCurrentFocus());
         }
         return super.onContextItemSelected(item);
     }
@@ -721,6 +737,16 @@ public class Main2Activity extends AppCompatActivity {
         Map<String, AttributeValue> item;
     }
 
+    public void callingDialog2(View view) {
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... voids) {
+
+                return null;
+            }
+        }.execute();
+    }
+
     public void callingDialog(View view) {
 
         dialog.setContentView(R.layout.popupwindow);
@@ -745,6 +771,7 @@ public class Main2Activity extends AppCompatActivity {
         doorEventsList = new ArrayList<>();
 
         taskComplete = false;
+
         new AsyncTask<List<Void>, Void, Void>() {
             @Override
             protected Void doInBackground(List<Void>... lists) {
@@ -780,6 +807,62 @@ public class Main2Activity extends AppCompatActivity {
     public void closeDialog(View view) {
         dialog.dismiss();
     }
+    class callingDialogAgain extends AsyncTask<Void, Void, Void> {
+
+        @Override
+        protected Void doInBackground(Void... voids) {
+            //dialog.setContentView(R.layout.popupwindow);
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            textView = dialog.findViewById(R.id.testtextview);
+            CardView cardView = dialog.findViewById(R.id.dialog);
+            ViewGroup.LayoutParams params = cardView.getLayoutParams();
+            params.height = (int) (Resources.getSystem().getDisplayMetrics().heightPixels * 0.8);
+            params.width = (int) (Resources.getSystem().getDisplayMetrics().widthPixels * 0.8);
+            cardView.setLayoutParams(params);
+            ViewGroup.LayoutParams textParams = textView.getLayoutParams();
+            textParams.height = (int) (params.height * 0.9);
+            textParams.width = (int) (params.width * 0.9);
+            textView.setLayoutParams(textParams);
+            ScrollView scrollView = dialog.findViewById(R.id.scrollview);
+            ViewGroup.LayoutParams scrollparams = scrollView.getLayoutParams();
+            scrollparams.width = textParams.width;
+            scrollparams.height = textParams.height;
+            scrollView.setLayoutParams(scrollparams);
+            doorEventsList = new ArrayList<>();
+            doorEventsList = getTable();
+            StringBuilder builder = new StringBuilder();
+            //int i = 1;
+            for (itemWithDate withDate : doorEventsList) {
+
+                Calendar calendar = DateUtils.toCalendar(withDate.date);
+
+                builder.append(calendar.get(Calendar.DATE)).append("/");
+                builder.append(calendar.get(Calendar.MONTH)+1).append("/");
+                builder.append(calendar.get(Calendar.YEAR)).append(" ");
+                builder.append(calendar.get(Calendar.HOUR_OF_DAY)).append(":");
+                builder.append(calendar.get(Calendar.MINUTE)).append(":");
+                builder.append(calendar.get(Calendar.SECOND)).append("\n");
+
+                //builder.append(withDate.date).append("\n");
+
+                builder.append(withDate.item.get("event").getS()).append("\n");
+                builder.append("\n");
+            }
+            textView.setText(builder.toString());
+
+            return null;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            dialog.setContentView(R.layout.popupwindow);
+        }
+
+        @Override
+        protected void onPostExecute(Void aVoid) {
+            dialog.show();
+        }
+    }
 }
 class getIdentity extends AsyncTask<CognitoCachingCredentialsProvider, Void, String> {
 
@@ -796,3 +879,4 @@ class getIdentity extends AsyncTask<CognitoCachingCredentialsProvider, Void, Str
         else Log.d("Identity", "getIdentityId failed - return null");
     }
 }
+
