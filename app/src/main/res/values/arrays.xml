@@ -4,5 +4,8 @@
         <item>
             Event Log
         </item>
+        <item>
+            Log Count
+        </item>
     </string-array>
 </resources>

@@ -28,7 +28,6 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.ParcelUuid;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.CardView;
@@ -53,14 +52,14 @@ import com.amazonaws.auth.CognitoCachingCredentialsProvider;
 import com.amazonaws.mobile.client.AWSMobileClient;
 import com.amazonaws.mobile.client.Callback;
 import com.amazonaws.mobile.client.UserStateDetails;
-import com.amazonaws.mobile.client.UserStateListener;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsyncClient;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.dynamodbv2.model.ComparisonOperator;
 import com.amazonaws.services.dynamodbv2.model.Condition;
+import com.amazonaws.services.dynamodbv2.model.DescribeTableResult;
 import com.amazonaws.services.dynamodbv2.model.ScanRequest;
+import com.amazonaws.services.dynamodbv2.model.TableDescription;
 
 import org.apache.commons.lang3.time.DateUtils;
 import org.json.JSONException;
@@ -79,8 +78,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 
-import static com.example.root.maglock.SearchActivity.hasMyService;
-
 public class Main2Activity extends AppCompatActivity {
     private static String TAG = "MAGLOCK." + Main2Activity.class.getSimpleName();
     private static final int PERMISSION_REQUEST_LOCATION = 400;
@@ -98,25 +95,22 @@ public class Main2Activity extends AppCompatActivity {
 
     private Switch aSwitch;
     private Button button;
+    private Handler handler;
 
     private boolean scanning = false;
     private boolean stateChanged = false;
-    private boolean identityChecked = false;
     private volatile boolean taskComplete = false;
-    private Boolean activeNet = false;
+    private boolean activeNet = false;
+    private boolean itemClicked = false;
 
-    private SimpleDateFormat sdf;
-
-    private AmazonDynamoDBClient client;
     private AmazonDynamoDBAsyncClient dynamoDB;
 
-    private Context appContext;
     private AWSMobileClient auth;
-    private UserStateListener listener;
 
     private CognitoCachingCredentialsProvider credentialsProvider;
 
     private List<itemWithDate> doorEventsList;
+    private itemWithDate lastItem;
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
 
@@ -168,12 +162,26 @@ public class Main2Activity extends AppCompatActivity {
 
             }
             if (BluetoothLeService.ACTION_GATT_CONNECTED.equals(action)) {
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
-                String address = device.getAddress();
-                int position = mAdapter.getPosition(address);
-                mAdapter.setConnection(position, true);
-                mAdapter.notifyDataSetChanged();
-                stopScanning();
+                if (!itemClicked) {
+                    BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
+                    String address = device.getAddress();
+                    int position = mAdapter.getPosition(address);
+                    mAdapter.setConnection(position, true);
+                    mAdapter.notifyDataSetChanged();
+                    stopScanning();
+                }
+                else {
+                    BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
+                    String address = device.getAddress();
+                    int position = mAdapter.getPosition(address);
+                    BluetoothGattCharacteristic characteristic = mAdapter.getItem(position, gridItemAdapter.REQ);
+                    if (characteristic!=null) {
+                        byte[] data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0};
+                        characteristic.setValue(data);
+                        mBluetoothLeService.writeCharacteristic(characteristic, address);
+                        mBluetoothLeService.disconnect();
+                    }
+                }
             }
             if (BluetoothLeService.ACTION_GATT_DISCONNECTED.equals(action)) {
                 Log.d(TAG, "ACTION_GATT_DISCONNECTED");
@@ -182,7 +190,12 @@ public class Main2Activity extends AppCompatActivity {
                 int position = mAdapter.getPosition(address);
                 mAdapter.setConnection(position, false);
                 mAdapter.notifyDataSetChanged();
-                mBluetoothLeService.connect(address);
+                if (!itemClicked) {
+                    mBluetoothLeService.connect(address);
+                }
+                else {
+                    itemClicked = false;
+                }
             }
             if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
                 Log.d(TAG, "ACTION_GATT_SERVICES_DISCOVERED");
@@ -190,8 +203,8 @@ public class Main2Activity extends AppCompatActivity {
                 String address = device.getAddress();
                 int position = mAdapter.getPosition(address);
                 getGattServices(mBluetoothLeService.getSupportedGattServices(address), position);
-                mBluetoothLeService.setNotify(address, mAdapter.getItem(position, gridItemAdapter.CONTACT));
-                startScanning();
+                //mBluetoothLeService.setNotify(address, mAdapter.getItem(position, gridItemAdapter.CONTACT));
+                //startScanning();
             }
             if (BluetoothLeService.ACTION_DESCRIPTOR_WRITE.equals(action)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
@@ -269,8 +282,8 @@ public class Main2Activity extends AppCompatActivity {
         setContentView(R.layout.activity_main2);
 
         // First Check if there is internet connection;
-        ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        NetworkInfo activeNetwork = connectivityManager.getActiveNetworkInfo();
+        final ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        final NetworkInfo activeNetwork = connectivityManager.getActiveNetworkInfo();
         activeNet = activeNetwork != null &&
                 activeNetwork.isConnected();
 
@@ -289,8 +302,7 @@ public class Main2Activity extends AppCompatActivity {
         gridView.setContextClickable(true);
         dialog = new Dialog(this);
         registerForContextMenu(gridView);
-
-
+        handler = new Handler();
 
 
         /* Set the itemclickListener for the gridview, in this case, onclick means to send an open
@@ -301,6 +313,23 @@ public class Main2Activity extends AppCompatActivity {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Log.d(TAG, "onItemClick position:" + position);
+
+                stopScanning();
+                if (!mAdapter.getConnection(position)) {
+                    ScanResult scanResult = (ScanResult) mAdapter.getItem(position);
+                    String address = scanResult.getDevice().getAddress();
+                    mBluetoothLeService.connect(address);
+                    itemClicked = true;
+                    /*
+                     If the device is not connected(default), get the device address and connect
+                     to it, then toogle the itemClicked flag(This will act when connection is done.
+                     */
+                }
+                else {
+                    mBluetoothLeService.disconnect();
+                }
+
+                /*
                 if (mAdapter.getConnection(position)) {
                     BluetoothGattCharacteristic characteristic = mAdapter.getItem(position, gridItemAdapter.REQ);
                     byte[] data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0};
@@ -309,6 +338,7 @@ public class Main2Activity extends AppCompatActivity {
                     String address = scanResult.getDevice().getAddress();
                     mBluetoothLeService.writeCharacteristic(characteristic, address);
                 }
+                */
 
             }
         });
@@ -384,7 +414,54 @@ public class Main2Activity extends AppCompatActivity {
             Log.d(TAG, "error, mBluetoothLeScanner receive NULL");
         }
 
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                final NetworkInfo activeNetwork = connectivityManager.getActiveNetworkInfo();
+                activeNet = activeNetwork != null &&
+                        activeNetwork.isConnected() &&
+                        activeNetwork.getType()==ConnectivityManager.TYPE_WIFI;
+                Log.d(TAG, "ActiveNet:" + activeNet);
+                handler.postDelayed(this, 60000);
+            }
+        }, 60000);
 
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (activeNet) {
+                    // Check the number of items on table.
+
+                    if (mAdapter.getCount() > 0 && doorEventsList != null && doorEventsList.size() > 0) {
+                        new getSingleTask().execute();
+                        for (int i = 0; i < mAdapter.getCount(); i++) {
+                            if (lastItem == null) {
+                                lastItem = doorEventsList.get(0);
+                            }
+
+                            String event = lastItem.item.get("event").getS();
+                            boolean state;
+
+                            Log.d(TAG, "Last Event:" + event);
+                            if (event.contains("closed")
+                                    || event.contains("unlock")) {
+                                state = true;
+                                mAdapter.setTableDoor(i, state);
+                                mAdapter.notifyDataSetChanged();
+                            } else if (event.contains("forced")) {
+                                state = false;
+                                mAdapter.setTableDoor(i, state);
+                                mAdapter.notifyDataSetChanged();
+                            }
+                        }
+                    }
+                    handler.postDelayed(this, 500);
+                }
+                else {
+                    handler.postDelayed(this, 10000);
+                }
+            }
+        });
         final Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
 
@@ -415,25 +492,14 @@ public class Main2Activity extends AppCompatActivity {
             });
 
             new callingDialogAgain().execute();
-            /*new AsyncTask<Void, Void, Void>() {
-                @Override
-                protected Void doInBackground(Void... voids) {
-                    callingDialog(getCurrentFocus());
-                    return null;
-                }
-            }.execute();*/
-            //callingDialog2(getCurrentFocus());
+        }
+        if (item.getItemId() == 1) {
+            new getTableCount().execute();
         }
         return super.onContextItemSelected(item);
     }
 
     private List<itemWithDate> getTable() {
-        /*Log.d(TAG, String.valueOf(dynamoDB.listTables()));
-        Log.d(TAG, String.valueOf(dynamoDB.describeTable("maglock-door1")));
-        Table table = Table.loadTable(dynamoDB, "maglock-door1");
-        Log.d(TAG, "Hashkeys:" + String.valueOf(table.getHashKeys()));
-        Log.d(TAG, "Rangekeys:" + String.valueOf(table.getRangeKeys()));
-*/
         Condition notNullCondition = new Condition()
                 .withComparisonOperator(ComparisonOperator.NOT_NULL);
         Map<String, Condition> keyConditions = new HashMap<>();
@@ -504,6 +570,7 @@ public class Main2Activity extends AppCompatActivity {
             }
             lastEvaluatedKey = scanResult.getLastEvaluatedKey();
         } while (lastEvaluatedKey != null);
+        lastItem = withDateArrayList.get(0);
         return withDateArrayList;
     }
 
@@ -604,17 +671,19 @@ public class Main2Activity extends AppCompatActivity {
             super.onScanResult(callbackType, result);
 
             //noinspection ConstantConditions
-            List<ParcelUuid> parcelUuids = result.getScanRecord().getServiceUuids();
-            if (parcelUuids == null) {
-                Log.d(TAG, "No ServiceUUIDs, returning.");
-                return;
-            } else {
+
+
+            //List<ParcelUuid> parcelUuids = result.getScanRecord().getServiceUuids();
+            //if (parcelUuids == null) {
+            //    Log.d(TAG, "No ServiceUUIDs, returning.");
+            //    return;
+            //} else {
                 Log.d(TAG, "Device:" + result.getScanRecord().getDeviceName());
-                for (ParcelUuid uuid : parcelUuids) {
-                    Log.d(TAG, "uuid:" + uuid.toString());
-                }
-            }
-            if (hasMyService(result.getScanRecord())) {
+            //    for (ParcelUuid uuid : parcelUuids) {
+            //        Log.d(TAG, "uuid:" + uuid.toString());
+            //    }
+            //}
+            //if (hasMyService(result.getScanRecord())) {
                 if (mAdapter.getPosition(result.getDevice().getAddress()) == -1) {
                     mAdapter.add(result);
                     //mBluetoothLeService.connect(result.getDevice().getAddress());
@@ -644,7 +713,7 @@ public class Main2Activity extends AppCompatActivity {
                 } else {
                     mAdapter.add(result);
                 }
-            }
+            //}
 
             mAdapter.notifyDataSetChanged();
             Log.d(TAG, result.toString());
@@ -661,7 +730,9 @@ public class Main2Activity extends AppCompatActivity {
         ArrayList<HashMap<String, String>> gattServiceData = new ArrayList<>();
         ArrayList<ArrayList<HashMap<String, String>>> gattCharacteristicData = new ArrayList<>();
 
+
         for (BluetoothGattService service : supportedGattServices) {
+            Log.d(TAG, service.toString());
             if (service.getUuid().equals(SampleGattAttributes.DOOR_SERVICE_UUID)) {
                 mAdapter.addCharacteristics(position,
                         service.getCharacteristic(SampleGattAttributes.DOOR_CONTACT_CHARACTERISTIC),
@@ -704,7 +775,6 @@ public class Main2Activity extends AppCompatActivity {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            appContext = getApplicationContext();
             auth = AWSMobileClient.getInstance();
             auth.signOut();
             try {
@@ -735,16 +805,6 @@ public class Main2Activity extends AppCompatActivity {
         Date date;
         Integer milis;
         Map<String, AttributeValue> item;
-    }
-
-    public void callingDialog2(View view) {
-        new AsyncTask<Void, Void, Void>() {
-            @Override
-            protected Void doInBackground(Void... voids) {
-
-                return null;
-            }
-        }.execute();
     }
 
     public void callingDialog(View view) {
@@ -863,7 +923,133 @@ public class Main2Activity extends AppCompatActivity {
             dialog.show();
         }
     }
+    class getTableTask extends AsyncTask<Void, Void, Void> {
+
+        @Override
+        protected Void doInBackground(Void... voids) {
+            doorEventsList = getTable();
+            return null;
+        }
+    }
+    class getTableCount extends AsyncTask<Void, Void, Long> {
+        @Override
+        protected Long doInBackground(Void... voids) {
+            DescribeTableResult describeTableResult = dynamoDB.describeTable("maglock-door1");
+            TableDescription tableDescription = describeTableResult.getTable();
+            long count = tableDescription.getItemCount();
+            Log.d(TAG, "TableDescription:" + count);
+            return count;
+        }
+
+        @Override
+        protected void onPostExecute(final Long aLong) {
+            Handler handler = new Handler();
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(getApplicationContext(), "Count:" + aLong.toString(), Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+    }
+    class getSingleTask extends AsyncTask<Void, Void, Void> {
+
+        @Override
+        protected Void doInBackground(Void... voids) {
+            Condition notNullCondition = new Condition()
+                    .withComparisonOperator(ComparisonOperator.NOT_NULL);
+            Map<String, Condition> keyConditions = new HashMap<>();
+            keyConditions.put("date", notNullCondition);
+            keyConditions.put("priority", notNullCondition);
+            keyConditions.put("event", notNullCondition);
+
+            int hours = doorEventsList.get(0).date.getHours();
+            if ( hours == 9 || hours == 19 ){
+                // If the time has some chance of changing, consider...
+            }
+            // If it is the last Hour
+            if (doorEventsList.get(0).date.getHours()==23)
+            // If it is December.
+            if (doorEventsList.get(0).date.getMonth()==11) {
+
+            }
+            String dateCut = doorEventsList.get(0).item.get("date").getS().substring(0, 13);
+
+            Log.d(TAG, "dateCut:" + dateCut);
+            Log.d(TAG, "lastItem:" + lastItem.item.get("date").getS());
+
+            Condition closeTolast = new Condition()
+                    .withComparisonOperator(ComparisonOperator.BEGINS_WITH)
+                    .withAttributeValueList(new AttributeValue(dateCut));
+            keyConditions.put("date", closeTolast);
+            Condition notLast = new Condition()
+                    .withComparisonOperator(ComparisonOperator.NE)
+                    .withAttributeValueList(new AttributeValue(doorEventsList.get(0).item.get("date").getS()));
+            keyConditions.put("date", notLast);
+
+            List<itemWithDate> withDateArrayList = new ArrayList<>();
+            Map<String, AttributeValue> lastEvaluatedKey = null;
+
+            do {
+                ScanRequest scanRequest = new ScanRequest()
+                        .withTableName("maglock-door1")
+                        .withExclusiveStartKey(lastEvaluatedKey)
+                        .withScanFilter(keyConditions)
+                        .withConsistentRead(true);
+                com.amazonaws.services.dynamodbv2.model.ScanResult scanResult = dynamoDB.scan(scanRequest);
+                if (scanResult.getCount() == 0) {
+                    Log.d(TAG, "No new event");
+                    // Do logic for no new event(repeat everything until it changes)
+                } else if (scanResult.getCount() == 1) {
+                    Log.d(TAG, "One new event");
+
+                    for (Map<String, AttributeValue> item : scanResult.getItems()) {
+                        // Since it is a single result, no need to use the logic for many.
+                        itemWithDate tempItem = null;
+                        tempItem.item = item;
+                        String date = item.get("date").getS().substring(0,19);
+                        try {
+                            Date date1 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).parse(date);
+                        } catch (ParseException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+                else {
+                    Log.d(TAG, "Two or more new events, call getTable.");
+                    for (Map<String, AttributeValue> item : scanResult.getItems()) {
+
+
+                        itemWithDate tempItem = new itemWithDate();
+                        String date = item.get("date").getS();
+
+                        String dateString = date.substring(0, 19);
+                        Date date1;
+                        String mili = date.substring(20);
+                        int mili1;
+                        try {
+                            date1 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).parse(dateString);
+                            mili1 = Integer.parseInt(mili);
+                            tempItem.date = date1;
+                            tempItem.milis = mili1;
+                            tempItem.item = item;
+                            withDateArrayList.add(tempItem);
+                        } catch (ParseException e) {
+                            e.printStackTrace();
+                        }
+
+
+
+                    }
+                    doorEventsList = getTable();
+                }
+            } while (lastEvaluatedKey!=null);
+
+            return null;
+        }
+    }
 }
+
 class getIdentity extends AsyncTask<CognitoCachingCredentialsProvider, Void, String> {
 
     @Override

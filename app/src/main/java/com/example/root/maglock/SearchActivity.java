@@ -190,7 +190,7 @@ public class SearchActivity extends AppCompatActivity {
     }
 
     public static boolean hasMyService( ScanRecord record) {
-        final String myServiceID = "3d22744e";
+        final String myServiceID = "00003d22";
         List<ParcelUuid> uuids = record.getServiceUuids();
         if (uuids != null) {
             for (ParcelUuid uuid : uuids) {

@@ -3,17 +3,13 @@ package com.example.root.maglock;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.le.ScanResult;
 import android.content.Context;
-import android.content.res.Resources;
 import android.graphics.Color;
-import android.graphics.ColorFilter;
-import android.support.annotation.Nullable;
 import android.support.v4.content.res.ResourcesCompat;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
-import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -29,7 +25,7 @@ public class gridItemAdapter extends BaseAdapter {
     private static final String TAG = ScanFragment.class.getSimpleName();
 
     private ArrayList<ScanResult> mArrayList;
-    private ArrayList<Boolean> mConnectedList, mDoorList, mStrikeList;
+    private ArrayList<Boolean> mConnectedList, mDoorList, mStrikeList, mTableList;
     private ArrayList<BluetoothGattCharacteristic> mDoorContactList, mDoorStrikeList, mDoorReqList;
     private LayoutInflater mInflater;
     private Context mContext;
@@ -45,6 +41,7 @@ public class gridItemAdapter extends BaseAdapter {
         mDoorStrikeList = new ArrayList<>();
         mDoorReqList = new ArrayList<>();
         mStrikeList = new ArrayList<>();
+        mTableList = new ArrayList<>();
     }
 
     @Override
@@ -78,16 +75,20 @@ public class gridItemAdapter extends BaseAdapter {
         Boolean connected = mConnectedList.get(position);
         Boolean door = mDoorList.get(position);
         Boolean strike = mStrikeList.get(position);
+        Boolean table = mTableList.get(position);
 
         ImageView imageView = (ImageView) convertView.findViewById(R.id.grid_lock);
         ImageView imageButton = (ImageView) convertView.findViewById(R.id.grid_door);
+        ImageView tableButton = convertView.findViewById(R.id.grid_table_door);
 
         //imageView.setColorFilter(ResourcesCompat.getColor(getResources(), R.color.colorGreen, null));
         if (!connected) {
             imageView.setColorFilter(Color.LTGRAY);
             imageButton.setColorFilter(Color.LTGRAY);
+            tableButton.setColorFilter(Color.LTGRAY);
             imageButton.setImageResource(R.drawable.door);
             imageView.setImageResource(R.drawable.lock);
+            tableButton.setImageResource(R.drawable.door);
         }
         else {
             imageView.setColorFilter(Color.BLACK);
@@ -112,6 +113,18 @@ public class gridItemAdapter extends BaseAdapter {
             else {
                 imageView.setImageResource(R.drawable.lock);
             }
+        }
+        if (table == null) {
+            tableButton.setColorFilter(Color.LTGRAY);
+            tableButton.setImageResource(R.drawable.door);
+        }
+        else if (!table) {
+            tableButton.setImageResource(R.drawable.door_open);
+            tableButton.setColorFilter(ResourcesCompat.getColor(parent.getResources(), R.color.colorRed, null));
+        }
+        else {
+            tableButton.setImageResource(R.drawable.door_closed);
+            tableButton.setColorFilter(ResourcesCompat.getColor(parent.getResources(), R.color.colorGreen, null));
         }
         if (!(scanResult.getScanRecord().getDeviceName() == null)) {
             textView.setText(scanResult.getScanRecord().getDeviceName());
@@ -165,6 +178,7 @@ public class gridItemAdapter extends BaseAdapter {
                 mDoorContactList.add(null);
                 mDoorStrikeList.add(null);
                 mDoorReqList.add(null);
+                mTableList.add(null);
                 return true;
             }
         }
@@ -181,6 +195,9 @@ public class gridItemAdapter extends BaseAdapter {
     }
     public void setStrikeNull(int position) {
         mStrikeList.set(position, null);
+    }
+    public void setTableDoor(int position, boolean state) {
+        mTableList.set(position, state);
     }
     public void addCharacteristics(int position, BluetoothGattCharacteristic characteristic, int type) {
         switch (type) {
