@@ -5,7 +5,8 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".Main2Activity">
+    tools:context=".Main2Activity"
+    >
 
     <Button
         android:id="@+id/button7"
@@ -21,6 +22,7 @@
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:foregroundGravity="center_vertical|center"
         app:layout_constraintBottom_toTopOf="@id/main2_refresh_button"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -31,22 +33,22 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            >
+            android:foregroundGravity="center_vertical|center_horizontal|center">
 
             <GridView
                 android:id="@+id/grid"
                 android:layout_width="100dp"
-                android:layout_height="100dp"
+                android:layout_height="120dp"
 
-                android:gravity="center"
-                android:layout_gravity="center"
+                android:layout_gravity="center_vertical|center_horizontal|center"
 
 
                 app:layout_constraintBottom_toTopOf="@+id/main2_bluetooth_switch"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                tools:listitem="@layout/griditem" />
+                tools:listitem="@layout/griditem"
+                />
         </FrameLayout>
     </ScrollView>
 

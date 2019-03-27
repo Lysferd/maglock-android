@@ -3,8 +3,6 @@ package com.example.root.maglock;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.le.ScanResult;
 import android.content.Context;
-import android.graphics.Color;
-import android.support.v4.content.res.ResourcesCompat;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,6 +12,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.Objects;
 
 
 public class gridItemAdapter extends BaseAdapter {
@@ -78,10 +77,23 @@ public class gridItemAdapter extends BaseAdapter {
         Boolean table = mTableList.get(position);
 
         ImageView imageView = (ImageView) convertView.findViewById(R.id.grid_lock);
-        ImageView imageButton = (ImageView) convertView.findViewById(R.id.grid_door);
-        ImageView tableButton = convertView.findViewById(R.id.grid_table_door);
+        //ImageView imageButton = (ImageView) convertView.findViewById(R.id.grid_door);
+        //ImageView tableButton = convertView.findViewById(R.id.grid_table_door);
 
+        //imageView.setColorFilter(Color.parseColor("#3DACF7"));
+        imageView.setBackgroundResource(R.drawable.round_button);
+        //imageView.setImageResource(R.drawable.lock);
+
+        if (connected) {
+            //imageView.setColorFilter(Color.parseColor("#77C344"));
+            imageView.setBackgroundResource(R.drawable.round_button2);
+        }
+        else {
+            //imageView.setColorFilter(Color.parseColor("#3DACF7"));
+            imageView.setBackgroundResource(R.drawable.round_button);
+        }
         //imageView.setColorFilter(ResourcesCompat.getColor(getResources(), R.color.colorGreen, null));
+        /*
         if (!connected) {
             imageView.setColorFilter(Color.LTGRAY);
             imageButton.setColorFilter(Color.LTGRAY);
@@ -90,7 +102,7 @@ public class gridItemAdapter extends BaseAdapter {
             imageView.setImageResource(R.drawable.lock);
             tableButton.setImageResource(R.drawable.door);
         }
-        else {
+        else*//* {
             imageView.setColorFilter(Color.BLACK);
             if (door == null) {
                 imageButton.setColorFilter(Color.LTGRAY);
@@ -105,7 +117,7 @@ public class gridItemAdapter extends BaseAdapter {
                 imageButton.setImageResource(R.drawable.door_closed);
             }
             if (strike == null) {
-                imageView.setColorFilter(Color.LTGRAY);
+                //imageView.setColorFilter(Color.LTGRAY);
             }
             else if (!strike) {
                 imageView.setImageResource(R.drawable.lock_open_outline);
@@ -113,23 +125,30 @@ public class gridItemAdapter extends BaseAdapter {
             else {
                 imageView.setImageResource(R.drawable.lock);
             }
-        }
-        if (table == null) {
+        }*/
+        /*if (table == null) {
             tableButton.setColorFilter(Color.LTGRAY);
             tableButton.setImageResource(R.drawable.door);
+            tableButton.setVisibility(View.VISIBLE);
         }
         else if (!table) {
+            tableButton.setVisibility(View.VISIBLE);
             tableButton.setImageResource(R.drawable.door_open);
             tableButton.setColorFilter(ResourcesCompat.getColor(parent.getResources(), R.color.colorRed, null));
         }
         else {
+            tableButton.setVisibility(View.VISIBLE);
             tableButton.setImageResource(R.drawable.door_closed);
             tableButton.setColorFilter(ResourcesCompat.getColor(parent.getResources(), R.color.colorGreen, null));
         }
-        if (!(scanResult.getScanRecord().getDeviceName() == null)) {
+        */
+        if (!(Objects.requireNonNull(scanResult.getScanRecord()).getDeviceName() == null)) {
             textView.setText(scanResult.getScanRecord().getDeviceName());
         }
-        if (textView!=null && textView.getVisibility()==View.GONE) {
+        else {
+            textView.setText(R.string.no_name);
+        }
+        if (textView!=null && textView.getVisibility()==View.INVISIBLE) {
             textView.setVisibility(View.VISIBLE);
         }
         return convertView;
@@ -141,7 +160,8 @@ public class gridItemAdapter extends BaseAdapter {
     public int getPosition(String address) {
         int position = -1;
         for (int i = 0; i < mArrayList.size(); i++) {
-            if (mArrayList.get(i).getDevice().getAddress().equals(address)) {
+            String mAddress = mArrayList.get(i).getDevice().getAddress();
+            if (mAddress.equals(address)) {
                 position = i;
                 break;
             }
@@ -161,9 +181,10 @@ public class gridItemAdapter extends BaseAdapter {
             return true;
         }
         else {
-            int existingPosition = getPosition(scanResult.getDevice().getAddress());
+            String address = scanResult.getDevice().getAddress();
+            int existingPosition = getPosition(address);
             String tempName = scanResult.getDevice().getName();
-            Log.d(TAG, "TempName:" + tempName);
+            Log.d(TAG, "TempName:" + tempName + " - " + address);
 
             if (existingPosition >= 0) {
                 // Device is already in list, update its record.

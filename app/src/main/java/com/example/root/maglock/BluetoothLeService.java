@@ -15,13 +15,9 @@ import android.content.Intent;
 import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
-import android.os.Parcel;
-import android.os.Parcelable;
 import android.support.annotation.RequiresApi;
 import android.util.Log;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -96,6 +92,7 @@ public class BluetoothLeService extends Service {
     // Implements callback methods for GATT events that the app cares about.  For example,
     // connection change and services discovered.
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
+
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             String intentAction;
@@ -616,6 +613,21 @@ public class BluetoothLeService extends Service {
             return;
         }*/
         //mBluetoothGatt.disconnect();
+    }
+
+    /**
+     * Disconnects an individual existing connection or cancel a pending connection. The
+     * disconnection result is reported asynchronously through the
+     * {@code BluetoothGattCallback#onConnectionStateChange(android.bluetooth.BluetoothGatt, int, int)}
+     * callback.
+     * @param address - The address from the device you wish to disconnect from, this is used to get
+     *                the correct BluetoothGatt from connectedDeviceMap
+     */
+    public void disconnect(String address) {
+        BluetoothGatt gatt = connectedDeviceMap.get(address);
+        assert gatt != null;
+        gatt.disconnect();
+        connectedDeviceMap.remove(address);
     }
 
     /**

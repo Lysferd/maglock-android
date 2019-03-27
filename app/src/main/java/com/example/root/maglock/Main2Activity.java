@@ -31,6 +31,7 @@ import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.CardView;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
@@ -64,9 +65,11 @@ import com.amazonaws.services.dynamodbv2.model.TableDescription;
 import org.apache.commons.lang3.time.DateUtils;
 import org.json.JSONException;
 
+import java.io.UnsupportedEncodingException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
@@ -150,7 +153,8 @@ public class Main2Activity extends AppCompatActivity {
                     if (stateChanged) {
                         for (int i = 0; i < mAdapter.getCount(); i++) {
                             ScanResult result = (ScanResult) mAdapter.getItem(i);
-                            mBluetoothLeService.connect(result.getDevice().getAddress());
+                            //mBluetoothLeService.connect(result.getDevice().getAddress());
+                            // For now, there is no need to reconnect to each device anymore.
                         }
                     }
                 }
@@ -162,6 +166,7 @@ public class Main2Activity extends AppCompatActivity {
 
             }
             if (BluetoothLeService.ACTION_GATT_CONNECTED.equals(action)) {
+                /*
                 if (!itemClicked) {
                     BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
                     String address = device.getAddress();
@@ -170,18 +175,27 @@ public class Main2Activity extends AppCompatActivity {
                     mAdapter.notifyDataSetChanged();
                     stopScanning();
                 }
-                else {
+                else {*/
                     BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
                     String address = device.getAddress();
                     int position = mAdapter.getPosition(address);
+                    mAdapter.setConnection(position, true);
+                    mAdapter.notifyDataSetChanged();
+                    /* Commented because the Pi does not actually have a REQ characteristic anymore
+                        so it has become unnecessary(Also, right now clicking on the door will only
+                        connect to it, and clicking it again will disconnect.
+                        (Idea) Maybe add the Open door option to the context menu.
+
                     BluetoothGattCharacteristic characteristic = mAdapter.getItem(position, gridItemAdapter.REQ);
                     if (characteristic!=null) {
                         byte[] data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0};
                         characteristic.setValue(data);
                         mBluetoothLeService.writeCharacteristic(characteristic, address);
-                        mBluetoothLeService.disconnect();
+                        //mBluetoothLeService.disconnect();
+                        // (TBD) Go to BluetoothLeService and use the cllback from writecharacteristic to disconnect.
                     }
-                }
+                    */
+                //}
             }
             if (BluetoothLeService.ACTION_GATT_DISCONNECTED.equals(action)) {
                 Log.d(TAG, "ACTION_GATT_DISCONNECTED");
@@ -315,9 +329,9 @@ public class Main2Activity extends AppCompatActivity {
                 Log.d(TAG, "onItemClick position:" + position);
 
                 stopScanning();
+                ScanResult scanResult = (ScanResult) mAdapter.getItem(position);
+                String address = scanResult.getDevice().getAddress();
                 if (!mAdapter.getConnection(position)) {
-                    ScanResult scanResult = (ScanResult) mAdapter.getItem(position);
-                    String address = scanResult.getDevice().getAddress();
                     mBluetoothLeService.connect(address);
                     itemClicked = true;
                     /*
@@ -326,7 +340,8 @@ public class Main2Activity extends AppCompatActivity {
                      */
                 }
                 else {
-                    mBluetoothLeService.disconnect();
+                    mBluetoothLeService.disconnect(address);
+                    itemClicked = true;
                 }
 
                 /*
@@ -666,6 +681,79 @@ public class Main2Activity extends AppCompatActivity {
     }
 
     private class SampleScanCallback extends ScanCallback {
+
+        @Override
+        public void onBatchScanResults(List<ScanResult> results) {
+            super.onBatchScanResults(results);
+
+            for (ScanResult result : results) {
+                Log.d(TAG, "Device:" + result.getScanRecord().getDeviceName());
+                byte[] bytes = result.getScanRecord().getBytes();
+                StringBuilder builder = new StringBuilder(bytes.length * 2);
+                for (byte bt : bytes) {
+                    builder.append(bt).append(" ");
+                }
+                try {
+                    String decodedRecord = new String(bytes, "UTF-8");
+                    Log.d(TAG,"DEBUG:" + "decoded String : " + builder);
+                    Log.d(TAG, "record:" + decodedRecord);
+                } catch (UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                }
+                List<AdRecord> records = AdRecord.parseScanRecord(bytes);
+
+                // Print individual records
+                if (records.size() == 0) {
+                    Log.i("DEBUG", "Scan Record Empty");
+                } else {
+                    Log.i("DEBUG", "Scan Record: " + TextUtils.join(",", records));
+                }
+
+                if (mAdapter.getPosition(result.getDevice().getAddress()) == -1) {
+                    mAdapter.add(result);
+                    //mBluetoothLeService.connect(result.getDevice().getAddress());
+
+
+                    int count = mAdapter.getCount();
+                    int base = dp(100);
+                    int baseHeight = dp(120);
+                    int widthPixels = Resources.getSystem().getDisplayMetrics().widthPixels;
+                    int heightPixels = Resources.getSystem().getDisplayMetrics().heightPixels;
+
+                    int verticalSpacing = ((heightPixels - 36) - (5*baseHeight))/5;
+                    int horizontalSpacing = ((widthPixels - 36) - (3*base))/3;
+                    ViewGroup.LayoutParams params = gridView.getLayoutParams();
+
+                    gridView.setVerticalSpacing(verticalSpacing);
+                    gridView.setHorizontalSpacing(horizontalSpacing);
+                    if (count == 0) {
+                        params.height = 10;
+                        params.width = 10;
+                    } else if (count < 4) {
+                        gridView.setNumColumns(count);
+                        params.height = baseHeight;
+                        //params.width = (base) * count;
+                        params.width = widthPixels - 36;
+                    } else {
+                        int major, minor;
+                        major = count / 3;
+                        minor = count % 3;
+                        if (minor != 0) {
+                            major++;
+                        }
+                        params.height = (baseHeight + verticalSpacing) * major;
+                    }
+                    gridView.setLayoutParams(params);
+                    gridView.invalidate();
+                } else {
+                    mAdapter.add(result);
+                }
+                mAdapter.notifyDataSetChanged();
+                Log.d(TAG, result.toString());
+            }
+            Log.d(TAG, "Done");
+        }
+
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             super.onScanResult(callbackType, result);
@@ -679,6 +767,26 @@ public class Main2Activity extends AppCompatActivity {
             //    return;
             //} else {
                 Log.d(TAG, "Device:" + result.getScanRecord().getDeviceName());
+                byte[] bytes = result.getScanRecord().getBytes();
+            StringBuilder builder = new StringBuilder(bytes.length * 2);
+            for (byte bt : bytes) {
+                builder.append(bt).append(" ");
+            }
+            try {
+                String decodedRecord = new String(bytes, "UTF-8");
+                Log.d(TAG,"DEBUG:" + "decoded String : " + builder);
+            } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+            }
+            List<AdRecord> records = AdRecord.parseScanRecord(bytes);
+
+            // Print individual records
+            if (records.size() == 0) {
+                Log.i("DEBUG", "Scan Record Empty");
+            } else {
+                Log.i("DEBUG", "Scan Record: " + TextUtils.join(",", records));
+            }
+
             //    for (ParcelUuid uuid : parcelUuids) {
             //        Log.d(TAG, "uuid:" + uuid.toString());
             //    }
@@ -688,25 +796,39 @@ public class Main2Activity extends AppCompatActivity {
                     mAdapter.add(result);
                     //mBluetoothLeService.connect(result.getDevice().getAddress());
 
+
                     int count = mAdapter.getCount();
                     int base = dp(100);
+                    int baseHeight = dp(120);
+                    int widthPixels = Resources.getSystem().getDisplayMetrics().widthPixels;
+                    int heightPixels = Resources.getSystem().getDisplayMetrics().heightPixels;
+
+                    int verticalSpacing = ((heightPixels - dp(32)) - (5*baseHeight))/5;
+                    int horizontalSpacing = ((widthPixels) - (3*base))/3;
                     ViewGroup.LayoutParams params = gridView.getLayoutParams();
 
+                    gridView.setHorizontalSpacing(horizontalSpacing);
                     if (count == 0) {
                         params.height = 10;
                         params.width = 10;
+                    } else if (count < 3) {
+                        gridView.setNumColumns(count);
+                        params.height = baseHeight;
+                        params.width = (base + horizontalSpacing) * count;
                     } else if (count < 4) {
                         gridView.setNumColumns(count);
-                        params.height = base;
-                        params.width = (base) * count;
+                        params.height = baseHeight;
+                        //params.width = (base + horizontalSpacing) * count;
+                        params.width = widthPixels - dp(32);
                     } else {
+                        gridView.setVerticalSpacing(verticalSpacing);
                         int major, minor;
                         major = count / 3;
                         minor = count % 3;
                         if (minor != 0) {
                             major++;
                         }
-                        params.height = (base) * major;
+                        params.height = (baseHeight + verticalSpacing) * major;
                     }
                     gridView.setLayoutParams(params);
                     gridView.invalidate();
@@ -724,12 +846,12 @@ public class Main2Activity extends AppCompatActivity {
     private void getGattServices(List<BluetoothGattService> supportedGattServices, int position) {
         if (supportedGattServices == null) return;
 
-        String uuid = null;
+        /*String uuid = null;
         String unknownServiceString = getResources().getString(R.string.unknown_service);
         String unknowCharaString = getResources().getString(R.string.unknown_characteristic);
         ArrayList<HashMap<String, String>> gattServiceData = new ArrayList<>();
         ArrayList<ArrayList<HashMap<String, String>>> gattCharacteristicData = new ArrayList<>();
-
+        */
 
         for (BluetoothGattService service : supportedGattServices) {
             Log.d(TAG, service.toString());
@@ -1047,6 +1169,56 @@ public class Main2Activity extends AppCompatActivity {
 
             return null;
         }
+    }
+    public static String ByteArrayToString(byte[] ba)
+    {
+        StringBuilder hex = new StringBuilder(ba.length * 2);
+        for (byte b : ba)
+            hex.append(b + " ");
+
+        return hex.toString();
+    }
+
+    public static class AdRecord {
+
+        public AdRecord(int length, int type, byte[] data) {
+            String decodedRecord = "";
+            try {
+                decodedRecord = new String(data,"UTF-8");
+
+            } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+            }
+
+            Log.d("DEBUG", "Length: " + length + " Type : " + type + " Data : " + ByteArrayToString(data));
+        }
+
+        // ...
+
+        public static List<AdRecord> parseScanRecord(byte[] scanRecord) {
+            List<AdRecord> records = new ArrayList<AdRecord>();
+
+            int index = 0;
+            while (index < scanRecord.length) {
+                int length = scanRecord[index++];
+                //Done once we run out of records
+                if (length == 0) break;
+
+                int type = scanRecord[index];
+                //Done if our record isn't a valid type
+                if (type == 0) break;
+
+                byte[] data = Arrays.copyOfRange(scanRecord, index+1, index+length);
+
+                records.add(new AdRecord(length, type, data));
+                //Advance
+                index += length;
+            }
+
+            return records;
+        }
+
+        // ...
     }
 }
 
