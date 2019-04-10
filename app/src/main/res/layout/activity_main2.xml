@@ -1,80 +1,74 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".Main2Activity"
-    >
-
-    <Button
-        android:id="@+id/button7"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:onClick="callingDialog"
-        android:text="call dialog"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        android:visibility="gone"/>
+    android:gravity="center"
+    android:orientation="vertical"
+    android:paddingTop="16dp"
+    tools:context=".Main2Activity">
 
     <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:foregroundGravity="center_vertical|center"
-        app:layout_constraintBottom_toTopOf="@id/main2_refresh_button"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        android:layout_width="wrap_content"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true"
+        >
 
-        <FrameLayout
-            android:id="@+id/main2_framelayout"
+        <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:foregroundGravity="center_vertical|center_horizontal|center">
+            android:gravity="center">
 
             <GridView
                 android:id="@+id/grid"
                 android:layout_width="100dp"
                 android:layout_height="120dp"
 
-                android:layout_gravity="center_vertical|center_horizontal|center"
+                android:layout_gravity="center"
 
-
-                app:layout_constraintBottom_toTopOf="@+id/main2_bluetooth_switch"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                tools:listitem="@layout/griditem"
-                />
-        </FrameLayout>
+                android:gravity="center"
+                tools:ignore="NestedScrolling"
+                tools:listitem="@layout/griditem" />
+        </RelativeLayout>
     </ScrollView>
 
-    <Switch
-        android:id="@+id/main2_bluetooth_switch"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/bluetoothswitchtext"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@id/main2_refresh_button" />
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:id="@+id/linearLayoutMain2">
 
-    <Button
-        android:id="@+id/main2_refresh_button"
-        android:layout_width="50dp"
-        android:layout_height="50dp"
-        android:background="@drawable/ic_action_refresh"
-        app:layout_constraintBottom_toBottomOf="parent"
-        android:visibility="invisible"
-        app:layout_constraintStart_toStartOf="parent" />
 
-    <ProgressBar
-        android:id="@+id/grid_progressbar"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toEndOf="@id/main2_refresh_button" />
-</android.support.constraint.ConstraintLayout>
+        <Button
+            android:id="@+id/main2_refresh_button"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:background="@drawable/ic_action_refresh"
+            android:visibility="invisible"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <ProgressBar
+            android:id="@+id/grid_progressbar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toEndOf="@id/main2_refresh_button" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1" />
+
+        <Switch
+            android:id="@+id/main2_bluetooth_switch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/bluetoothswitchtext" />
+    </LinearLayout>
+</LinearLayout>

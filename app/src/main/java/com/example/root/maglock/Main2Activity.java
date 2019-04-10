@@ -2,6 +2,7 @@ package com.example.root.maglock;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.AlertDialog;
 import android.app.Dialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -16,9 +17,11 @@ import android.bluetooth.le.ScanSettings;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
@@ -29,6 +32,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
+import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.CardView;
 import android.text.TextUtils;
@@ -43,6 +47,7 @@ import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.GridView;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.Switch;
@@ -79,6 +84,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 
 public class Main2Activity extends AppCompatActivity {
@@ -95,6 +101,7 @@ public class Main2Activity extends AppCompatActivity {
     private ProgressBar progressBar;
     private Dialog dialog;
     private TextView textView;
+    private LinearLayout linearLayout;
 
     private Switch aSwitch;
     private Button button;
@@ -317,6 +324,7 @@ public class Main2Activity extends AppCompatActivity {
         dialog = new Dialog(this);
         registerForContextMenu(gridView);
         handler = new Handler();
+        linearLayout = findViewById(R.id.linearLayoutMain2);
 
 
         /* Set the itemclickListener for the gridview, in this case, onclick means to send an open
@@ -332,6 +340,7 @@ public class Main2Activity extends AppCompatActivity {
                 ScanResult scanResult = (ScanResult) mAdapter.getItem(position);
                 String address = scanResult.getDevice().getAddress();
                 if (!mAdapter.getConnection(position)) {
+                    mBluetoothLeService.disconnect();
                     mBluetoothLeService.connect(address);
                     itemClicked = true;
                     /*
@@ -367,9 +376,10 @@ public class Main2Activity extends AppCompatActivity {
                         mBluetoothLeScanner = mBluetoothAdapter.getBluetoothLeScanner();
                     }
                     else {
-                        button.setBackground(getDrawable(R.drawable.ic_action_stop));
-                        startScanning();
-                        progressBar.setVisibility(View.VISIBLE);
+                        if (startScanning()) {
+                            button.setBackground(getDrawable(R.drawable.ic_action_stop));
+                            progressBar.setVisibility(View.VISIBLE);
+                        }
                     }
                 } else {
                     button.setBackground(getDrawable(R.drawable.ic_action_refresh));
@@ -410,7 +420,7 @@ public class Main2Activity extends AppCompatActivity {
             mBluetoothAdapter = ((BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE))
                     .getAdapter();
             // Is Bluetooth supported on this device?
-            if (mBluetoothAdapter != null) {
+            if (mBluetoothAdapter != null ) {
                 // Is Bluetooth turned on?
                 if (mBluetoothAdapter.isEnabled()) {
                     aSwitch.setChecked(true);
@@ -510,6 +520,31 @@ public class Main2Activity extends AppCompatActivity {
         }
         if (item.getItemId() == 1) {
             new getTableCount().execute();
+        }
+        if (item.getItemId() == 2) {
+            AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
+            int position = info.position;
+            Log.d(TAG, "Item position:" + position);
+
+            if (mAdapter.getConnection(position)) {
+                BluetoothGattCharacteristic characteristic = mAdapter.getItem(position, gridItemAdapter.REQ);
+                ScanResult scanResult = (ScanResult) mAdapter.getItem(position);
+                String address = scanResult.getDevice().getAddress();
+                if (characteristic != null) {
+                    byte[] data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0};
+                    characteristic.setValue(data);
+                    mBluetoothLeService.writeCharacteristic(characteristic, address);
+                } else {
+                    Toast.makeText(getApplicationContext(),
+                            "Error, the selected device does not have the needed characteristic," +
+                                    " disconnecting", Toast.LENGTH_LONG).show();
+                    mBluetoothLeService.disconnect(address);
+                }
+            } else {
+                Toast.makeText(getApplicationContext(),
+                        "Sorry but you need to be connected to a device for that", Toast.LENGTH_LONG).show();
+            }
+
         }
         return super.onContextItemSelected(item);
     }
@@ -633,7 +668,7 @@ public class Main2Activity extends AppCompatActivity {
         ScanFilter.Builder builder = new ScanFilter.Builder();
         // Comment out the below line to see all BLE devices around you
         //builder.setServiceUuid(Constants.Service_UUID);
-        //builder.setServiceUuid(Constants.magLock_UUID);
+        builder.setServiceUuid(Constants.magLock_UUID);
         //scanFilters.add(builder.build());
         //builder.setServiceUuid(Constants.magLock_UUID2);
         scanFilters.add(builder.build());
@@ -651,13 +686,21 @@ public class Main2Activity extends AppCompatActivity {
     public boolean startScanning() {
         if (mScanCallback == null) {
             Log.d(TAG, "Starting Scanning");
-
+            if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+                    != PackageManager.PERMISSION_GRANTED)
+            {
+                requestoLocationPermission();
+                return false;
+            }
             mScanCallback = new SampleScanCallback();
             scanning = true;
             if (mBluetoothLeScanner==null){
                 Log.d(TAG, "Scanner NUll, waiting");
                 return false;
             }
+
+
+
             mBluetoothLeScanner.startScan(buildScanFilters(), buildScanSettings(), mScanCallback);
 
         } else {
@@ -665,6 +708,28 @@ public class Main2Activity extends AppCompatActivity {
         }
         invalidateOptionsMenu();
         return true;
+    }
+
+    private void requestoLocationPermission() {
+        if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                Manifest.permission.ACCESS_COARSE_LOCATION)) {
+            final AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle("Permission Required.");
+            builder.setMessage("Please grant Location access so this application can perform " +
+                    "Bluetooth scanning");
+            builder.setPositiveButton(android.R.string.ok, null);
+            builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
+                @Override
+                public void onDismiss(DialogInterface dialog) {
+                    ActivityCompat.requestPermissions(Main2Activity.this, new
+                            String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, PERMISSION_REQUEST_LOCATION);
+                }
+            });
+            builder.show();
+        } else {
+            ActivityCompat.requestPermissions(this, new
+                    String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, PERMISSION_REQUEST_LOCATION);
+        }
     }
 
     public void stopScanning() {
@@ -681,78 +746,6 @@ public class Main2Activity extends AppCompatActivity {
     }
 
     private class SampleScanCallback extends ScanCallback {
-
-        @Override
-        public void onBatchScanResults(List<ScanResult> results) {
-            super.onBatchScanResults(results);
-
-            for (ScanResult result : results) {
-                Log.d(TAG, "Device:" + result.getScanRecord().getDeviceName());
-                byte[] bytes = result.getScanRecord().getBytes();
-                StringBuilder builder = new StringBuilder(bytes.length * 2);
-                for (byte bt : bytes) {
-                    builder.append(bt).append(" ");
-                }
-                try {
-                    String decodedRecord = new String(bytes, "UTF-8");
-                    Log.d(TAG,"DEBUG:" + "decoded String : " + builder);
-                    Log.d(TAG, "record:" + decodedRecord);
-                } catch (UnsupportedEncodingException e) {
-                    e.printStackTrace();
-                }
-                List<AdRecord> records = AdRecord.parseScanRecord(bytes);
-
-                // Print individual records
-                if (records.size() == 0) {
-                    Log.i("DEBUG", "Scan Record Empty");
-                } else {
-                    Log.i("DEBUG", "Scan Record: " + TextUtils.join(",", records));
-                }
-
-                if (mAdapter.getPosition(result.getDevice().getAddress()) == -1) {
-                    mAdapter.add(result);
-                    //mBluetoothLeService.connect(result.getDevice().getAddress());
-
-
-                    int count = mAdapter.getCount();
-                    int base = dp(100);
-                    int baseHeight = dp(120);
-                    int widthPixels = Resources.getSystem().getDisplayMetrics().widthPixels;
-                    int heightPixels = Resources.getSystem().getDisplayMetrics().heightPixels;
-
-                    int verticalSpacing = ((heightPixels - 36) - (5*baseHeight))/5;
-                    int horizontalSpacing = ((widthPixels - 36) - (3*base))/3;
-                    ViewGroup.LayoutParams params = gridView.getLayoutParams();
-
-                    gridView.setVerticalSpacing(verticalSpacing);
-                    gridView.setHorizontalSpacing(horizontalSpacing);
-                    if (count == 0) {
-                        params.height = 10;
-                        params.width = 10;
-                    } else if (count < 4) {
-                        gridView.setNumColumns(count);
-                        params.height = baseHeight;
-                        //params.width = (base) * count;
-                        params.width = widthPixels - 36;
-                    } else {
-                        int major, minor;
-                        major = count / 3;
-                        minor = count % 3;
-                        if (minor != 0) {
-                            major++;
-                        }
-                        params.height = (baseHeight + verticalSpacing) * major;
-                    }
-                    gridView.setLayoutParams(params);
-                    gridView.invalidate();
-                } else {
-                    mAdapter.add(result);
-                }
-                mAdapter.notifyDataSetChanged();
-                Log.d(TAG, result.toString());
-            }
-            Log.d(TAG, "Done");
-        }
 
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
@@ -775,6 +768,7 @@ public class Main2Activity extends AppCompatActivity {
             try {
                 String decodedRecord = new String(bytes, "UTF-8");
                 Log.d(TAG,"DEBUG:" + "decoded String : " + builder);
+                Log.d(TAG, "DEBUG: " + "decodedRecord String : " + decodedRecord);
             } catch (UnsupportedEncodingException e) {
                 e.printStackTrace();
             }
@@ -800,8 +794,10 @@ public class Main2Activity extends AppCompatActivity {
                     int count = mAdapter.getCount();
                     int base = dp(100);
                     int baseHeight = dp(120);
+                    int linearHeight = linearLayout.getHeight();
                     int widthPixels = Resources.getSystem().getDisplayMetrics().widthPixels;
                     int heightPixels = Resources.getSystem().getDisplayMetrics().heightPixels;
+
 
                     int verticalSpacing = ((heightPixels - dp(32)) - (5*baseHeight))/5;
                     int horizontalSpacing = ((widthPixels) - (3*base))/3;
@@ -865,6 +861,13 @@ public class Main2Activity extends AppCompatActivity {
                 mAdapter.addCharacteristics(position,
                         service.getCharacteristic(SampleGattAttributes.DOOR_REQ_CHARACTERISTIC),
                         gridItemAdapter.REQ);
+            }
+            List<BluetoothGattCharacteristic> characteristics = service.getCharacteristics();
+            Log.d(TAG, "Service:" + service.getUuid().toString());
+            for (BluetoothGattCharacteristic characteristic : characteristics)
+            {
+                UUID uuid = characteristic.getUuid();
+                Log.d(TAG, "-->Characteristic:" + uuid.toString());
             }
         }
     }
@@ -1190,7 +1193,14 @@ public class Main2Activity extends AppCompatActivity {
                 e.printStackTrace();
             }
 
-            Log.d("DEBUG", "Length: " + length + " Type : " + type + " Data : " + ByteArrayToString(data));
+            if (type == 9 && length > 0) {
+                Log.d("DEBUG", "Length: " + length + " Type : " + type + " Data : " + new String(data));
+            }
+            else if (type == -1) {
+                Log.d("DEBUG", "Length: " + length + " Type : " + type + " Data : " + new String(data));
+            }
+            else
+                Log.d("DEBUG", "Length: " + length + " Type : " + type + " Data : " + ByteArrayToString(data));
         }
 
         // ...

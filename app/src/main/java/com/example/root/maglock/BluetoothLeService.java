@@ -607,7 +607,13 @@ public class BluetoothLeService extends Service {
      * callback.
      */
     public void disconnect() {
-        connectedDeviceMap.clear();
+
+        for (BluetoothGatt gatt : connectedDeviceMap.values()) {
+            gatt.disconnect();
+            //gatt.close();
+            connectedDeviceMap.remove(gatt.getDevice().getAddress());
+        }
+        //connectedDeviceMap.clear();
         /*if (mBluetoothAdapter == null || mBluetoothGatt == null) {
             Log.w(TAG, "BluetoothAdapter not initialized");
             return;

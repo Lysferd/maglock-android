@@ -189,6 +189,7 @@ public class gridItemAdapter extends BaseAdapter {
             if (existingPosition >= 0) {
                 // Device is already in list, update its record.
                 mArrayList.set(existingPosition, scanResult);
+
                 return false;
             } else {
                 // Add new Device's ScanResult to list.

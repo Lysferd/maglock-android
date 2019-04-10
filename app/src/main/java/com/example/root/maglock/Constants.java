@@ -16,8 +16,9 @@ public class Constants {
     public static final ParcelUuid Service_UUID = ParcelUuid
             .fromString("0000b81d-0000-1000-8000-00805f9b34fb");
 
-    public static final ParcelUuid magLock_UUID = new ParcelUuid(convertFromInteger(0x180F));
+    public static final ParcelUuid magLock_UUID = new ParcelUuid(convertFromInteger(0x3D22));
     public static final ParcelUuid magLock_UUID2 = new ParcelUuid(convertFromInteger(0x180B));
+
     public static final ParcelUuid door_UUID = new ParcelUuid(UUID.fromString("3d22744e-38df-4a2d-bb2e-80f582f78784"));
 
     public static ParcelUuid parcelUuidMask = new ParcelUuid(UUID.fromString("0000FFFF-0000-0000-0000-000000000000"));
