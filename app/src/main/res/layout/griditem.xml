@@ -20,7 +20,7 @@
             android:id="@+id/grid_lock"
             android:layout_width="100dp"
             android:layout_height="100dp"
-            android:background="@drawable/round_button"
+            android:background="@drawable/transition_roundbutton"
             android:contentDescription="@string/lock_symbol"
             android:padding="25dp"
             android:src="@drawable/outline_lock_white_48" />

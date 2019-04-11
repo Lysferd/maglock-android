@@ -10,5 +10,8 @@
         <item>
             Requisition
         </item>
+        <item>
+            Clear List
+        </item>
     </string-array>
 </resources>

@@ -3,6 +3,7 @@ package com.example.root.maglock;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.le.ScanResult;
 import android.content.Context;
+import android.graphics.drawable.TransitionDrawable;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -24,7 +25,7 @@ public class gridItemAdapter extends BaseAdapter {
     private static final String TAG = ScanFragment.class.getSimpleName();
 
     private ArrayList<ScanResult> mArrayList;
-    private ArrayList<Boolean> mConnectedList, mDoorList, mStrikeList, mTableList;
+    private ArrayList<Boolean> mConnectedList, mDoorList, mStrikeList, mTableList, mTransition;
     private ArrayList<BluetoothGattCharacteristic> mDoorContactList, mDoorStrikeList, mDoorReqList;
     private LayoutInflater mInflater;
     private Context mContext;
@@ -41,6 +42,7 @@ public class gridItemAdapter extends BaseAdapter {
         mDoorReqList = new ArrayList<>();
         mStrikeList = new ArrayList<>();
         mTableList = new ArrayList<>();
+        mTransition = new ArrayList<>();
     }
 
     @Override
@@ -75,22 +77,34 @@ public class gridItemAdapter extends BaseAdapter {
         Boolean door = mDoorList.get(position);
         Boolean strike = mStrikeList.get(position);
         Boolean table = mTableList.get(position);
+        Boolean transition = mTransition.get(position);
 
         ImageView imageView = (ImageView) convertView.findViewById(R.id.grid_lock);
         //ImageView imageButton = (ImageView) convertView.findViewById(R.id.grid_door);
         //ImageView tableButton = convertView.findViewById(R.id.grid_table_door);
 
         //imageView.setColorFilter(Color.parseColor("#3DACF7"));
-        imageView.setBackgroundResource(R.drawable.round_button);
+        ////imageView.setBackgroundResource(R.drawable.round_button);
         //imageView.setImageResource(R.drawable.lock);
+
+        TransitionDrawable transitionDrawable = (TransitionDrawable) imageView.getBackground();
 
         if (connected) {
             //imageView.setColorFilter(Color.parseColor("#77C344"));
-            imageView.setBackgroundResource(R.drawable.round_button2);
+            //imageView.setBackgroundResource(R.drawable.round_button2);
+            //imageView.setBackgroundResource(R.drawable.transition_roundbutton);
+            //if (transition) {
+                transitionDrawable.startTransition(500);
+            //    mTransition.set(position, false);
+            //}
         }
         else {
+            //if (transition) {
+                transitionDrawable.resetTransition();
+                //mTransition.set(position, false);
+            //}
             //imageView.setColorFilter(Color.parseColor("#3DACF7"));
-            imageView.setBackgroundResource(R.drawable.round_button);
+            //imageView.setBackgroundResource(R.drawable.round_button);
         }
         //imageView.setColorFilter(ResourcesCompat.getColor(getResources(), R.color.colorGreen, null));
         /*
@@ -201,6 +215,7 @@ public class gridItemAdapter extends BaseAdapter {
                 mDoorStrikeList.add(null);
                 mDoorReqList.add(null);
                 mTableList.add(null);
+                mTransition.add(false);
                 return true;
             }
         }
@@ -208,6 +223,7 @@ public class gridItemAdapter extends BaseAdapter {
 
     public void setConnection(int position, boolean state) {
         mConnectedList.set(position, state);
+        mTransition.set(position, true);
     }
     public void setDoor(int position, boolean state) {
         mDoorList.set(position, state);
@@ -269,5 +285,16 @@ public class gridItemAdapter extends BaseAdapter {
 
     public void setDoorNull(int position) {
         mDoorList.set(position, null);
+    }
+
+    public void clear() {
+        mArrayList.clear();
+        mConnectedList.clear();
+        mDoorList.clear();
+        mStrikeList.clear();
+        mTableList.clear();
+        mDoorContactList.clear();
+        mDoorStrikeList.clear();
+        mDoorReqList.clear();
     }
 }

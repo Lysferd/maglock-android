@@ -226,6 +226,13 @@ public class Main2Activity extends AppCompatActivity {
                 getGattServices(mBluetoothLeService.getSupportedGattServices(address), position);
                 //mBluetoothLeService.setNotify(address, mAdapter.getItem(position, gridItemAdapter.CONTACT));
                 //startScanning();
+                Bundle bundle = intent.getExtras();
+                if (bundle == null) {
+                    Log.d(TAG, "NULL services");
+                }
+                else {
+                    Log.d(TAG, bundle.toString());
+                }
             }
             if (BluetoothLeService.ACTION_DESCRIPTOR_WRITE.equals(action)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
@@ -500,7 +507,13 @@ public class Main2Activity extends AppCompatActivity {
             menu.setHeaderTitle(Objects.requireNonNull(res.getScanRecord()).getDeviceName());
             String[] menuItems = getResources().getStringArray(R.array.menu);
             for (int i = 0; i<menuItems.length; i++) {
-                menu.add(Menu.NONE, i, i, menuItems[i]);
+                if (i == 2 ) {
+                    if (mAdapter.getConnection(((AdapterView.AdapterContextMenuInfo) menuInfo).position)) {
+                        menu.add(Menu.NONE, i, i, menuItems[i]);
+                    }
+                } else {
+                    menu.add(Menu.NONE, i, i, menuItems[i]);
+                }
             }
         }
     }
@@ -545,6 +558,11 @@ public class Main2Activity extends AppCompatActivity {
                         "Sorry but you need to be connected to a device for that", Toast.LENGTH_LONG).show();
             }
 
+        }
+        if (item.getItemId() == 3)
+        {
+            mAdapter.clear();
+            mAdapter.notifyDataSetChanged();
         }
         return super.onContextItemSelected(item);
     }
@@ -716,7 +734,7 @@ public class Main2Activity extends AppCompatActivity {
             final AlertDialog.Builder builder = new AlertDialog.Builder(this);
             builder.setTitle("Permission Required.");
             builder.setMessage("Please grant Location access so this application can perform " +
-                    "Bluetooth scanning");
+                    "Bluetooth scanning.");
             builder.setPositiveButton(android.R.string.ok, null);
             builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
                 @Override
@@ -768,7 +786,6 @@ public class Main2Activity extends AppCompatActivity {
             try {
                 String decodedRecord = new String(bytes, "UTF-8");
                 Log.d(TAG,"DEBUG:" + "decoded String : " + builder);
-                Log.d(TAG, "DEBUG: " + "decodedRecord String : " + decodedRecord);
             } catch (UnsupportedEncodingException e) {
                 e.printStackTrace();
             }
