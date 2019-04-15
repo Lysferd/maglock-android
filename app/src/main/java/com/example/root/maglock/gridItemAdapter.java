@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.le.ScanResult;
 import android.content.Context;
 import android.graphics.drawable.TransitionDrawable;
+import android.os.Handler;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -87,25 +88,55 @@ public class gridItemAdapter extends BaseAdapter {
         ////imageView.setBackgroundResource(R.drawable.round_button);
         //imageView.setImageResource(R.drawable.lock);
 
-        TransitionDrawable transitionDrawable = (TransitionDrawable) imageView.getBackground();
+        TransitionDrawable transitionDrawable = (TransitionDrawable) imageView.getBackground().getCurrent();
+        final int pos = position;
 
+        Log.d(TAG, "transition:" + transition);
+        if (transition) {
+            if (connected) {
+                Log.d(TAG, "Transition-connected");
+                transitionDrawable.startTransition(500);
+                Handler handler = new Handler();
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        mTransition.set(pos, false);
+                    }
+                }, 500);
+
+            } else {
+                Log.d(TAG, "Transition-not!connected");
+                transitionDrawable.reverseTransition(300);
+                Handler handler = new Handler();
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        mTransition.set(pos, false);
+                    }
+                }, 300);
+                //mTransition.set(position, false);
+            }
+
+        }
+        /*
         if (connected) {
             //imageView.setColorFilter(Color.parseColor("#77C344"));
             //imageView.setBackgroundResource(R.drawable.round_button2);
             //imageView.setBackgroundResource(R.drawable.transition_roundbutton);
-            //if (transition) {
-                transitionDrawable.startTransition(500);
-            //    mTransition.set(position, false);
-            //}
+
+            transitionDrawable.startTransition(500);
+            mTransition.set(position, false);
         }
         else {
-            //if (transition) {
-                transitionDrawable.resetTransition();
-                //mTransition.set(position, false);
-            //}
+
+                transitionDrawable.startTransition(100);
+                mTransition.set(position, false);
+
+
             //imageView.setColorFilter(Color.parseColor("#3DACF7"));
             //imageView.setBackgroundResource(R.drawable.round_button);
         }
+        */
         //imageView.setColorFilter(ResourcesCompat.getColor(getResources(), R.color.colorGreen, null));
         /*
         if (!connected) {

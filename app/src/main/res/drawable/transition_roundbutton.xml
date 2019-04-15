@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <transition xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@drawable/round_button"/>
-    <item android:drawable="@drawable/round_button2" />
+    <item android:drawable="@drawable/round_button"
+        android:id="@+id/round1"/>
+    <item android:drawable="@drawable/round_button2"
+        android:id="@+id/round2"/>
 </transition>
