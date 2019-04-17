@@ -93,6 +93,7 @@ public class gridItemAdapter extends BaseAdapter {
 
         Log.d(TAG, "transition:" + transition);
         if (transition) {
+            imageView.setImageResource(R.drawable.outline_lock_white_48);
             if (connected) {
                 Log.d(TAG, "Transition-connected");
                 transitionDrawable.startTransition(500);
@@ -117,6 +118,19 @@ public class gridItemAdapter extends BaseAdapter {
                 //mTransition.set(position, false);
             }
 
+        }
+        else {
+            if (!connected) {
+                transitionDrawable.resetTransition();
+            }
+        }
+        if (connected && door!=null) {
+            if (!door) {
+                imageView.setImageResource(R.drawable.outline_lock_open_white_48);
+            }
+            else {
+                imageView.setImageResource(R.drawable.outline_lock_white_48);
+            }
         }
         /*
         if (connected) {
@@ -262,6 +276,8 @@ public class gridItemAdapter extends BaseAdapter {
     public void setStrike(int position, boolean state) {
         mStrikeList.set(position, state);
     }
+    public boolean getStrike(int position) { return mStrikeList.get(position); }
+
     public void setStrikeNull(int position) {
         mStrikeList.set(position, null);
     }
@@ -327,5 +343,6 @@ public class gridItemAdapter extends BaseAdapter {
         mDoorContactList.clear();
         mDoorStrikeList.clear();
         mDoorReqList.clear();
+        mTransition.clear();
     }
 }

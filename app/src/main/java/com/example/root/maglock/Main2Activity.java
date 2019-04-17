@@ -208,14 +208,15 @@ public class Main2Activity extends AppCompatActivity {
                 Log.d(TAG, "ACTION_GATT_DISCONNECTED");
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
                 String address = device.getAddress();
-                int position = mAdapter.getPosition(address);
-                mAdapter.setConnection(position, false);
-                mAdapter.notifyDataSetChanged();
-                if (!itemClicked) {
-                    mBluetoothLeService.connect(address);
-                }
-                else {
-                    itemClicked = false;
+                if (mAdapter.getCount() > 0) {
+                    int position = mAdapter.getPosition(address);
+                    mAdapter.setConnection(position, false);
+                    mAdapter.notifyDataSetChanged();
+                    if (!itemClicked) {
+                        mBluetoothLeService.connect(address);
+                    } else {
+                        itemClicked = false;
+                    }
                 }
             }
             if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
@@ -224,6 +225,11 @@ public class Main2Activity extends AppCompatActivity {
                 String address = device.getAddress();
                 int position = mAdapter.getPosition(address);
                 getGattServices(mBluetoothLeService.getSupportedGattServices(address), position);
+
+                /*if (mAdapter.getItem(position, gridItemAdapter.STRIKE) != null) {
+                    BluetoothGattCharacteristic characteristic = mAdapter.getItem(position, gridItemAdapter.STRIKE);
+                    mBluetoothLeService.setNotify(address, characteristic);
+                }*/
                 //mBluetoothLeService.setNotify(address, mAdapter.getItem(position, gridItemAdapter.CONTACT));
                 //startScanning();
                 Bundle bundle = intent.getExtras();
@@ -247,13 +253,13 @@ public class Main2Activity extends AppCompatActivity {
                 switch (type) {
                     case (BluetoothLeService.CONTACT):
 
-                        Log.d(TAG, "Contact descriptor notify called, proceeding to start notify from Strike");
-                        BluetoothGattCharacteristic characteristic = mAdapter.getItem(position, gridItemAdapter.STRIKE);
-                        mBluetoothLeService.setNotify(address, characteristic);
+                        Log.d(TAG, "Contact descriptor notify called");// proceeding to start notify from Strike");
+                        //BluetoothGattCharacteristic characteristic = mAdapter.getItem(position, gridItemAdapter.STRIKE);
+                        //mBluetoothLeService.setNotify(address, characteristic);
                         break;
                     case (BluetoothLeService.STRIKE):
                         Log.d(TAG, "Strike descriptor notify called, nothing else to be done");
-                        mBluetoothLeService.readCharacteristic(mAdapter.getItem(position, gridItemAdapter.CONTACT), address);
+//                        mBluetoothLeService.readCharacteristic(mAdapter.getItem(position, gridItemAdapter.CONTACT), address);
 
                         break;
                 }
@@ -269,9 +275,11 @@ public class Main2Activity extends AppCompatActivity {
                 if (bundle.containsKey(BluetoothLeService.DOOR_CONTACT_DATA)) {
                     displayDoorContactData(intent.getStringExtra(BluetoothLeService.DOOR_CONTACT_DATA), position);
                     mAdapter.notifyDataSetChanged();
+                    Log.d(TAG, "Contact Received:" + intent.getStringExtra(BluetoothLeService.DOOR_CONTACT_DATA));
                 }
                 if (bundle.containsKey(BluetoothLeService.DOOR_STRIKE_DATA)) {
                     displayDoorStrikeData(intent.getStringExtra(BluetoothLeService.DOOR_STRIKE_DATA), position);
+                    Log.d(TAG, "Strike Received:" + intent.getStringExtra(BluetoothLeService.DOOR_STRIKE_DATA));
                     mAdapter.notifyDataSetChanged();
                 }
                 if (bundle.containsKey(BluetoothLeService.EXTRA_DATA)) {
@@ -300,6 +308,12 @@ public class Main2Activity extends AppCompatActivity {
             if (data.equals("1")) {
                 mAdapter.setDoor(position, true);
             }
+            /*Toast.makeText(getApplicationContext(),
+                    data,
+                    Toast.LENGTH_SHORT)
+                    .show();
+                    */
+
         }
     }
 
@@ -511,7 +525,26 @@ public class Main2Activity extends AppCompatActivity {
                     if (mAdapter.getConnection(((AdapterView.AdapterContextMenuInfo) menuInfo).position)) {
                         menu.add(Menu.NONE, i, i, menuItems[i]);
                     }
-                } else {
+                } else if (i == 4) {
+                    /*if (mAdapter.getConnection(((AdapterView.AdapterContextMenuInfo) menuInfo).position) &&
+                            !mAdapter.getStrike(((AdapterView.AdapterContextMenuInfo) menuInfo).position)) {
+                        menu.add(Menu.NONE, i, i, menuItems[i]);
+                    }*/
+                } else if (i == 5) {
+                    /*if (mAdapter.getConnection(((AdapterView.AdapterContextMenuInfo) menuInfo).position) &&
+                            mAdapter.getStrike(((AdapterView.AdapterContextMenuInfo) menuInfo).position)) {
+                        menu.add(Menu.NONE, i, i, menuItems[i]);
+                    }*/
+                } else if (i == 6) {
+                    if (mAdapter.getConnection(((AdapterView.AdapterContextMenuInfo) menuInfo).position)) {
+                        menu.add(Menu.NONE, i, i, menuItems[i]);
+                    }
+                } else if (i == 7) {
+                    if (mAdapter.getConnection(((AdapterView.AdapterContextMenuInfo) menuInfo).position)) {
+                        menu.add(Menu.NONE, i, i, menuItems[i]);
+                    }
+                }
+                else {
                     menu.add(Menu.NONE, i, i, menuItems[i]);
                 }
             }
@@ -520,6 +553,11 @@ public class Main2Activity extends AppCompatActivity {
 
     @Override
     public boolean onContextItemSelected(MenuItem item) {
+        AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
+        int position = info.position;
+        ScanResult scanResult = (ScanResult) mAdapter.getItem(position);
+        String address = scanResult.getDevice().getAddress();
+
         if (item.getItemId() == 0) {
             Handler handler = new Handler();
             handler.post(new Runnable() {
@@ -535,14 +573,11 @@ public class Main2Activity extends AppCompatActivity {
             new getTableCount().execute();
         }
         if (item.getItemId() == 2) {
-            AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
-            int position = info.position;
             Log.d(TAG, "Item position:" + position);
 
             if (mAdapter.getConnection(position)) {
                 BluetoothGattCharacteristic characteristic = mAdapter.getItem(position, gridItemAdapter.REQ);
-                ScanResult scanResult = (ScanResult) mAdapter.getItem(position);
-                String address = scanResult.getDevice().getAddress();
+
                 if (characteristic != null) {
                     byte[] data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0};
                     characteristic.setValue(data);
@@ -561,8 +596,41 @@ public class Main2Activity extends AppCompatActivity {
         }
         if (item.getItemId() == 3)
         {
+            mBluetoothLeService.disconnect();
             mAdapter.clear();
             mAdapter.notifyDataSetChanged();
+        }
+        if (item.getItemId() == 4)
+        {
+            Toast.makeText(getApplicationContext(), "Start Notification not yet implemented.", Toast.LENGTH_SHORT).show();
+        }
+        if (item.getItemId() == 5)
+        {
+            Toast.makeText(getApplicationContext(), "Stop Notification not yet implemented.", Toast.LENGTH_SHORT).show();
+        }
+        if (item.getItemId() == 6)
+        {
+            BluetoothGattCharacteristic characteristic = mAdapter.getItem(position, gridItemAdapter.CONTACT);
+            if (characteristic != null) {
+                mBluetoothLeService.readCharacteristic(characteristic, address);
+            } else {
+                Toast.makeText(getApplicationContext(),
+                        "Contact Characteristic not found",
+                        Toast.LENGTH_SHORT)
+                        .show();
+            }
+        }
+        if (item.getItemId() == 7)
+        {
+            BluetoothGattCharacteristic characteristic = mAdapter.getItem(position, gridItemAdapter.CONTACT);
+            if (characteristic != null) {
+                mBluetoothLeService.setNotify(address, characteristic);
+            } else {
+                Toast.makeText(getApplicationContext(),
+                        "Contact Characteristic no found",
+                        Toast.LENGTH_SHORT)
+                        .show();
+            }
         }
         return super.onContextItemSelected(item);
     }

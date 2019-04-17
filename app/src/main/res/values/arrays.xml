@@ -13,5 +13,17 @@
         <item>
             Clear List
         </item>
+        <item>
+            Start Strike Notification
+        </item>
+        <item>
+            Stop Strike Notification
+        </item>
+        <item>
+            Contact
+        </item>
+        <item>
+            Contact Notify
+        </item>
     </string-array>
 </resources>

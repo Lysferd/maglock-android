@@ -190,11 +190,13 @@ public class BluetoothLeService extends Service {
                 BluetoothDevice device = gatt.getDevice();
                 broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic, device);
             }
+            /*
             if (characteristic.getUuid().equals(SampleGattAttributes.DOOR_CONTACT_CHARACTERISTIC)) {
                 BluetoothGattCharacteristic characteristic1 = gatt.getService(SampleGattAttributes.DOOR_SERVICE_UUID)
                         .getCharacteristic(SampleGattAttributes.DOOR_STRIKE_CHARACTERISTIC);
                 gatt.readCharacteristic(characteristic1);
             }
+            */
         }
 
         @Override
@@ -709,13 +711,13 @@ public class BluetoothLeService extends Service {
         }
         mBluetoothGatt.setCharacteristicNotification(characteristic, enabled);
 
-        // This is specific to Heart Rate Measurement.
+        /* This is specific to Heart Rate Measurement.
         if (UUID_HEART_RATE_MEASUREMENT.equals(characteristic.getUuid())) {
             BluetoothGattDescriptor descriptor = characteristic.getDescriptor(
                     UUID.fromString(SampleGattAttributes.CLIENT_CHARACTERISTIC_CONFIG));
             descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
             mBluetoothGatt.writeDescriptor(descriptor);
-        }
+        }*/
 
         final Intent intent = new Intent(ACTION_CHARACTERISTIC_NOTIFICATION);
         intent.putExtra(ACTION_CHARACTERISTIC_DATA, characteristic);
