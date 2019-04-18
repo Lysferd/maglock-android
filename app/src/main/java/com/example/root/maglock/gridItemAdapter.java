@@ -270,6 +270,9 @@ public class gridItemAdapter extends BaseAdapter {
         mConnectedList.set(position, state);
         mTransition.set(position, true);
     }
+    public void setConnection(int position, boolean state, boolean noTransition) {
+        mConnectedList.set(position, state);
+    }
     public void setDoor(int position, boolean state) {
         mDoorList.set(position, state);
     }

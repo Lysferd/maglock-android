@@ -89,6 +89,9 @@ public class BluetoothLeService extends Service {
     public final static UUID UUID_HEART_RATE_MEASUREMENT =
             UUID.fromString(SampleGattAttributes.HEART_RATE_MEASUREMENT);
 
+    public final static String SERIAL_DESCRIPTOR =
+            "SERIAL_DESCRIPTOR";
+
     // Implements callback methods for GATT events that the app cares about.  For example,
     // connection change and services discovered.
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
@@ -305,6 +308,13 @@ public class BluetoothLeService extends Service {
                         Log.d(TAG, String.valueOf(byteChar));
                     }
                     intent.putExtra(TEST_DATA, new String(data) + "\n" + stringBuilder.toString());
+                }
+            }
+        } else if (SampleGattAttributes.SERIAL_NUMBER_DESCRIPTOR_UUID.equals(descriptor.getUuid())) {
+            final byte[] data = descriptor.getValue();
+            if (data != null && data.length > 0) {
+                if (data.length == 25) {
+                    Log.d(TAG, "25 byte received.");
                 }
             }
         }

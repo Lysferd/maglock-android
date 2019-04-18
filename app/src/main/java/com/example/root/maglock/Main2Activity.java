@@ -210,7 +210,13 @@ public class Main2Activity extends AppCompatActivity {
                 String address = device.getAddress();
                 if (mAdapter.getCount() > 0) {
                     int position = mAdapter.getPosition(address);
-                    mAdapter.setConnection(position, false);
+                    if (!mAdapter.getConnection(position))
+                    {
+                        mAdapter.setConnection(position, false, true);
+                    }
+                    else {
+                        mAdapter.setConnection(position, false);
+                    }
                     mAdapter.notifyDataSetChanged();
                     if (!itemClicked) {
                         mBluetoothLeService.connect(address);
@@ -357,7 +363,10 @@ public class Main2Activity extends AppCompatActivity {
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Log.d(TAG, "onItemClick position:" + position);
 
-                stopScanning();
+                if (scanning) {
+                    button.performClick();
+                }
+                //stopScanning();
                 ScanResult scanResult = (ScanResult) mAdapter.getItem(position);
                 String address = scanResult.getDevice().getAddress();
                 if (!mAdapter.getConnection(position)) {
@@ -520,7 +529,37 @@ public class Main2Activity extends AppCompatActivity {
             ScanResult res = (ScanResult) mAdapter.getItem(info.position);
             menu.setHeaderTitle(Objects.requireNonNull(res.getScanRecord()).getDeviceName());
             String[] menuItems = getResources().getStringArray(R.array.menu);
+            boolean connection = mAdapter.getConnection(((AdapterView.AdapterContextMenuInfo) menuInfo).position);
             for (int i = 0; i<menuItems.length; i++) {
+                switch (i) {
+                    case 2:
+                    {
+                        if (connection) {
+                            menu.add(Menu.NONE, i, i, menuItems[i]);
+                        }
+                        break;
+                    }
+                    case 3:
+                    {
+                        menu.add(Menu.NONE, i, i, menuItems[i]);
+                        break;
+                    }
+                    case 6:
+                    {
+                        if (connection) {
+                            menu.add(Menu.NONE, i, i, menuItems[i]);
+                        }
+                        break;
+                    }
+                    case 7:
+                    {
+                        if (connection) {
+                            menu.add(Menu.NONE, i, i, menuItems[i]);
+                        }
+                        break;
+                    }
+                }
+                /*
                 if (i == 2 ) {
                     if (mAdapter.getConnection(((AdapterView.AdapterContextMenuInfo) menuInfo).position)) {
                         menu.add(Menu.NONE, i, i, menuItems[i]);
@@ -529,12 +568,12 @@ public class Main2Activity extends AppCompatActivity {
                     /*if (mAdapter.getConnection(((AdapterView.AdapterContextMenuInfo) menuInfo).position) &&
                             !mAdapter.getStrike(((AdapterView.AdapterContextMenuInfo) menuInfo).position)) {
                         menu.add(Menu.NONE, i, i, menuItems[i]);
-                    }*/
+                    }
                 } else if (i == 5) {
                     /*if (mAdapter.getConnection(((AdapterView.AdapterContextMenuInfo) menuInfo).position) &&
                             mAdapter.getStrike(((AdapterView.AdapterContextMenuInfo) menuInfo).position)) {
                         menu.add(Menu.NONE, i, i, menuItems[i]);
-                    }*/
+                    }
                 } else if (i == 6) {
                     if (mAdapter.getConnection(((AdapterView.AdapterContextMenuInfo) menuInfo).position)) {
                         menu.add(Menu.NONE, i, i, menuItems[i]);
@@ -547,6 +586,7 @@ public class Main2Activity extends AppCompatActivity {
                 else {
                     menu.add(Menu.NONE, i, i, menuItems[i]);
                 }
+                */
             }
         }
     }

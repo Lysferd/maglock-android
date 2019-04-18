@@ -31,6 +31,10 @@ public class SampleGattAttributes {
     public static UUID DOOR_STRIKE_CHARACTERISTIC = UUID.fromString("a1fd909e-b168-452a-99fe-621db9c0111a");
     public static UUID DOOR_REQ_CHARACTERISTIC = UUID.fromString("8f3625e6-5f63-4bf8-872b-8786a911b620");
 
+    public static UUID DEVICE_INFORMATION_SERVICE_UUID = convertFromInteger(0x180A);
+    public static UUID SERIAL_NUMBER_CHARACTERISTIC_UUID = convertFromInteger(0x2A25);
+    public static UUID SERIAL_NUMBER_DESCRIPTOR_UUID = convertFromInteger(0x2901);
+
     static {
         // Sample Services.
         attributes.put("0000180d-0000-1000-8000-00805f9b34fb", "Heart Rate Service");
@@ -66,6 +70,10 @@ public class SampleGattAttributes {
         attributes.put(String.valueOf(DOOR_CONTACT_CHARACTERISTIC), "Door Contact Characteristic");
         attributes.put(String.valueOf(DOOR_STRIKE_CHARACTERISTIC), "Door Strike Characteristic");
         attributes.put(String.valueOf(DOOR_REQ_CHARACTERISTIC), "Door Requisition Characteristic");
+        // Device information
+        attributes.put(String.valueOf(DEVICE_INFORMATION_SERVICE_UUID), "Device Information Service");
+        attributes.put(String.valueOf(SERIAL_NUMBER_CHARACTERISTIC_UUID), "Serial Number Characteristic");
+        attributes.put(String.valueOf(SERIAL_NUMBER_DESCRIPTOR_UUID), "Serial Number Descriptor");
     }
 
     public static String lookup(String uuid, String defaultName) {
