@@ -91,6 +91,8 @@ public class BluetoothLeService extends Service {
 
     public final static String SERIAL_DESCRIPTOR =
             "SERIAL_DESCRIPTOR";
+    public final static String SERIAL_DATA =
+            "SERIAL_DATA";
 
     // Implements callback methods for GATT events that the app cares about.  For example,
     // connection change and services discovered.
@@ -207,9 +209,12 @@ public class BluetoothLeService extends Service {
             Log.d(TAG, "READ" + String.valueOf(descriptor.getUuid()) + "\n" + "Status:" + status);
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 Log.d(TAG, "READ_SUCCESS");
-                broadcastUpdate(ACTION_DATA_AVAILABLE, descriptor);
+                BluetoothDevice device = gatt.getDevice();
+                broadcastUpdate(ACTION_DATA_AVAILABLE, descriptor, device);
             }
         }
+
+
 
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt,
@@ -242,6 +247,21 @@ public class BluetoothLeService extends Service {
                 }
                 else
                     intent.putExtra(DOOR_STRIKE_DATA, String.valueOf(false));
+            }
+        }
+        else if (SampleGattAttributes.SERIAL_NUMBER_CHARACTERISTIC_UUID.equals(characteristic.getUuid())) {
+            final byte[] data = characteristic.getValue();
+            if (data != null && data.length > 0) {
+                if (data.length == 25) {
+                    Log.d(TAG, "RECEIVED 25 BYTES");
+                }
+                /*StringBuilder stringBuilder = new StringBuilder(data.length);
+                for (byte byteChar : data) {
+                    stringBuilder.append(String.format("%02X", byteChar));
+                }*/
+                String string = characteristic.getStringValue(0);
+                Log.d(TAG, string);
+                intent.putExtra(SERIAL_DATA, string);
             }
         }
         else {
@@ -281,6 +301,40 @@ public class BluetoothLeService extends Service {
         sendBroadcast(intent);
     }
 
+    private void broadcastUpdate(String action, BluetoothGattDescriptor descriptor, BluetoothDevice device) {
+        final Intent intent = new Intent(action);
+        intent.putExtra(DEVICE_DATA, device);
+
+        Log.d(TAG, String.valueOf(descriptor));
+        if (SampleGattAttributes.SERIAL_NUMBER_DESCRIPTOR_UUID.equals(descriptor.getUuid())) {
+            final byte[] data = descriptor.getValue();
+            if (data != null && data.length > 0) {
+                final StringBuilder stringBuilder = new StringBuilder(data.length);
+                if (data.length == 25) {
+                    Log.d(TAG, "25 byte received.");
+                }
+                for (byte byteChar : data) {
+                    stringBuilder.append(String.format("%02x ", byteChar));
+                    Log.d(TAG, String.valueOf(byteChar));
+                }
+                intent.putExtra(SERIAL_DESCRIPTOR, stringBuilder.toString());
+            }
+        }
+        else {
+            final byte[] data = descriptor.getValue();
+            if (data != null && data.length > 0) {
+                final StringBuilder stringBuilder = new StringBuilder(data.length);
+                for (byte byteChar : data) {
+                    stringBuilder.append(String.format("%02X ", byteChar));
+                    Log.d(TAG, String.valueOf(byteChar));
+                }
+                Log.d(TAG, new String(data));
+                intent.putExtra(EXTRA_DATA, new String(data) + "\n" + stringBuilder.toString());
+            }
+        }
+        sendBroadcast(intent);
+    }
+
     private void broadcastUpdate(final String action,
                                  final BluetoothGattDescriptor descriptor) {
         final Intent intent = new Intent(action);
@@ -313,9 +367,15 @@ public class BluetoothLeService extends Service {
         } else if (SampleGattAttributes.SERIAL_NUMBER_DESCRIPTOR_UUID.equals(descriptor.getUuid())) {
             final byte[] data = descriptor.getValue();
             if (data != null && data.length > 0) {
+                final StringBuilder stringBuilder = new StringBuilder(data.length);
                 if (data.length == 25) {
                     Log.d(TAG, "25 byte received.");
                 }
+                for (byte byteChar : data) {
+                    stringBuilder.append(String.format("%02x ", byteChar));
+                    Log.d(TAG, String.valueOf(byteChar));
+                }
+                intent.putExtra(SERIAL_DESCRIPTOR, new String(data) + "\n" + stringBuilder.toString());
             }
         }
         else {
@@ -697,6 +757,17 @@ public class BluetoothLeService extends Service {
             return;
         }
         mBluetoothGatt.readDescriptor(descriptor);
+    }
+    public void readDescriptor(String address, BluetoothGattDescriptor descriptor) {
+        if (connectedDeviceMap.containsKey(address) && mBluetoothAdapter != null) {
+            BluetoothGatt gatt = connectedDeviceMap.get(address);
+            assert gatt != null;
+            gatt.readDescriptor(descriptor);
+        }
+        else {
+            Log.w(TAG, "BluetoothAdapter not initialized");
+            return;
+        }
     }
 
     public void writeDescriptor(BluetoothGattDescriptor descriptor) {

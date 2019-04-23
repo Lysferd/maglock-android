@@ -25,5 +25,8 @@
         <item>
             Contact Notify
         </item>
+        <item>
+            Read Serial
+        </item>
     </string-array>
 </resources>

@@ -7,6 +7,7 @@ import android.app.Dialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.BluetoothLeScanner;
@@ -272,6 +273,7 @@ public class Main2Activity extends AppCompatActivity {
             }
             if (BluetoothLeService.ACTION_DATA_AVAILABLE.equals(action)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
+
                 String address = device.getAddress();
                 int position = mAdapter.getPosition(address);
                 Bundle bundle = intent.getExtras();
@@ -287,6 +289,14 @@ public class Main2Activity extends AppCompatActivity {
                     displayDoorStrikeData(intent.getStringExtra(BluetoothLeService.DOOR_STRIKE_DATA), position);
                     Log.d(TAG, "Strike Received:" + intent.getStringExtra(BluetoothLeService.DOOR_STRIKE_DATA));
                     mAdapter.notifyDataSetChanged();
+                }
+                if (bundle.containsKey(BluetoothLeService.SERIAL_DESCRIPTOR)) {
+                    String serial = intent.getStringExtra(BluetoothLeService.SERIAL_DESCRIPTOR);
+                    Toast.makeText(getApplicationContext(), serial, Toast.LENGTH_LONG).show();
+                }
+                if (bundle.containsKey(BluetoothLeService.SERIAL_DATA)) {
+                    String serial = intent.getStringExtra(BluetoothLeService.SERIAL_DATA);
+                    Toast.makeText(getApplicationContext(), serial, Toast.LENGTH_LONG).show();
                 }
                 if (bundle.containsKey(BluetoothLeService.EXTRA_DATA)) {
                     Log.d(TAG, intent.getStringExtra(BluetoothLeService.EXTRA_DATA));
@@ -558,6 +568,13 @@ public class Main2Activity extends AppCompatActivity {
                         }
                         break;
                     }
+                    case 8:
+                    {
+                        if (connection) {
+                            menu.add(Menu.NONE, i, i, menuItems[i]);
+                        }
+                        break;
+                    }
                 }
                 /*
                 if (i == 2 ) {
@@ -670,6 +687,18 @@ public class Main2Activity extends AppCompatActivity {
                         "Contact Characteristic no found",
                         Toast.LENGTH_SHORT)
                         .show();
+            }
+        }
+        if (item.getItemId() == 8)
+        {
+            BluetoothGattCharacteristic characteristic = mAdapter.getItem(position, gridItemAdapter.SERIAL);
+            if (characteristic != null) {
+                mBluetoothLeService.readCharacteristic(characteristic, address);
+            }
+            else {
+                Toast.makeText(getApplicationContext(),
+                        "Error: Serial not found",
+                        Toast.LENGTH_SHORT).show();
             }
         }
         return super.onContextItemSelected(item);
@@ -986,6 +1015,22 @@ public class Main2Activity extends AppCompatActivity {
                 mAdapter.addCharacteristics(position,
                         service.getCharacteristic(SampleGattAttributes.DOOR_REQ_CHARACTERISTIC),
                         gridItemAdapter.REQ);
+            }
+            if (service.getUuid().equals(SampleGattAttributes.DEVICE_INFORMATION_SERVICE_UUID)) {
+                Log.d(TAG, service.toString());
+                List<BluetoothGattCharacteristic> characteristicList = service.getCharacteristics();
+                for (BluetoothGattCharacteristic characteristic : characteristicList) {
+                    if (characteristic.getUuid().equals(SampleGattAttributes.SERIAL_NUMBER_CHARACTERISTIC_UUID)) {
+                        mAdapter.addCharacteristics(position, characteristic, gridItemAdapter.SERIAL);
+                        List<BluetoothGattDescriptor> descriptorList = characteristic.getDescriptors();
+                        for (BluetoothGattDescriptor descriptor : descriptorList) {
+                            if (descriptor.getUuid().equals(SampleGattAttributes.SERIAL_NUMBER_DESCRIPTOR_UUID)) {
+                                mAdapter.addSerialDescriptor(position, descriptor);
+                                Log.d(TAG, "SerialDescriptor found in Services.");
+                            }
+                        }
+                    }
+                }
             }
             List<BluetoothGattCharacteristic> characteristics = service.getCharacteristics();
             Log.d(TAG, "Service:" + service.getUuid().toString());

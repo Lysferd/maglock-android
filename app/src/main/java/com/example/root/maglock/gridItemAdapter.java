@@ -1,6 +1,7 @@
 package com.example.root.maglock;
 
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.le.ScanResult;
 import android.content.Context;
 import android.graphics.drawable.TransitionDrawable;
@@ -22,12 +23,14 @@ public class gridItemAdapter extends BaseAdapter {
     public static final int CONTACT = 1;
     public static final int  STRIKE = 2;
     public static final int     REQ = 3;
+    public static final int  SERIAL = 4;
 
     private static final String TAG = ScanFragment.class.getSimpleName();
 
     private ArrayList<ScanResult> mArrayList;
     private ArrayList<Boolean> mConnectedList, mDoorList, mStrikeList, mTableList, mTransition;
-    private ArrayList<BluetoothGattCharacteristic> mDoorContactList, mDoorStrikeList, mDoorReqList;
+    private ArrayList<BluetoothGattCharacteristic> mDoorContactList, mDoorStrikeList, mDoorReqList, mSerialList;
+    private ArrayList<BluetoothGattDescriptor> mSerialDescriptor;
     private LayoutInflater mInflater;
     private Context mContext;
 
@@ -44,6 +47,8 @@ public class gridItemAdapter extends BaseAdapter {
         mStrikeList = new ArrayList<>();
         mTableList = new ArrayList<>();
         mTransition = new ArrayList<>();
+        mSerialDescriptor = new ArrayList<>();
+        mSerialList = new ArrayList<>();
     }
 
     @Override
@@ -261,6 +266,8 @@ public class gridItemAdapter extends BaseAdapter {
                 mDoorReqList.add(null);
                 mTableList.add(null);
                 mTransition.add(false);
+                mSerialDescriptor.add(null);
+                mSerialList.add(null);
                 return true;
             }
         }
@@ -298,32 +305,66 @@ public class gridItemAdapter extends BaseAdapter {
             case REQ:
                 mDoorReqList.set(position, characteristic);
                 break;
+            case SERIAL:
+                mSerialList.set(position, characteristic);
+                break;
+        }
+    }
+    public void addSerialDescriptor( int position, BluetoothGattDescriptor descriptor) {
+        if (descriptor == null) {
+            Log.d(TAG, "Error: Descriptor NULL");
+            return;
+        }
+        else {
+            mSerialDescriptor.set(position, descriptor);
         }
     }
 
+    public BluetoothGattDescriptor getDescriptor(int position) {
+        if (position >= mArrayList.size()) {
+            Log.d(TAG, "Error: No matching item for position " + position);
+            return null;
+        }
+        else {
+            return mSerialDescriptor.get(position);
+        }
+    }
     public BluetoothGattCharacteristic getItem(int position, int type) {
         BluetoothGattCharacteristic characteristic;
-        switch (type) {
-            case CONTACT:
-                characteristic = mDoorContactList.get(position);
-                if (characteristic!=null) {
-                    return mDoorContactList.get(position);
-                }
-                break;
-            case STRIKE:
-                characteristic = mDoorStrikeList.get(position);
-                if (characteristic != null) {
-                    return mDoorStrikeList.get(position);
-                }
-                break;
-            case REQ:
-                characteristic = mDoorReqList.get(position);
-                if (characteristic != null) {
-                    return mDoorReqList.get(position);
-                }
-                break;
+        if (position >= mArrayList.size()) {
+            Log.d(TAG, "Error: No matching item for position " + position);
+            return null;
         }
-        return null;
+        else {
+            switch (type) {
+                case CONTACT:
+                    characteristic = mDoorContactList.get(position);
+                    if (characteristic != null) {
+                        return mDoorContactList.get(position);
+                    }
+                    break;
+                case STRIKE:
+                    characteristic = mDoorStrikeList.get(position);
+                    if (characteristic != null) {
+                        return mDoorStrikeList.get(position);
+                    }
+                    break;
+                case REQ:
+                    characteristic = mDoorReqList.get(position);
+                    if (characteristic != null) {
+                        return mDoorReqList.get(position);
+                    }
+                    break;
+                case SERIAL: {
+                    characteristic = mSerialList.get(position);
+                    if (characteristic != null) {
+                        return characteristic;
+                    }
+                    break;
+                }
+            }
+            return null;
+        }
     }
 
     public boolean getConnection(int position) {
