@@ -31,6 +31,7 @@ public class gridItemAdapter extends BaseAdapter {
     private ArrayList<Boolean> mConnectedList, mDoorList, mStrikeList, mTableList, mTransition;
     private ArrayList<BluetoothGattCharacteristic> mDoorContactList, mDoorStrikeList, mDoorReqList, mSerialList;
     private ArrayList<BluetoothGattDescriptor> mSerialDescriptor;
+    private ArrayList<String> mSerial;
     private LayoutInflater mInflater;
     private Context mContext;
 
@@ -49,6 +50,7 @@ public class gridItemAdapter extends BaseAdapter {
         mTransition = new ArrayList<>();
         mSerialDescriptor = new ArrayList<>();
         mSerialList = new ArrayList<>();
+        mSerial = new ArrayList<>();
     }
 
     @Override
@@ -268,9 +270,29 @@ public class gridItemAdapter extends BaseAdapter {
                 mTransition.add(false);
                 mSerialDescriptor.add(null);
                 mSerialList.add(null);
+                mSerial.add(null);
                 return true;
             }
         }
+    }
+
+    public void setSerial(int position, String serial) {
+        if (position >= mArrayList.size()) {
+            Log.d(TAG, "ERROR: No matching item for position " + position);
+            return;
+        }
+        if (serial == null) {
+            Log.d(TAG, "ERROR: Serial NULL");
+            return;
+        }
+        mSerial.set(position, serial);
+    }
+    public String getSerial(int position) {
+        if (position >= mArrayList.size()) {
+            Log.d(TAG, "ERROR: No matching item for position " + position);
+            return null;
+        }
+        return mSerial.get(position);
     }
 
     public void setConnection(int position, boolean state) {

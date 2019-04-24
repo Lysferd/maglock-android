@@ -296,6 +296,7 @@ public class Main2Activity extends AppCompatActivity {
                 }
                 if (bundle.containsKey(BluetoothLeService.SERIAL_DATA)) {
                     String serial = intent.getStringExtra(BluetoothLeService.SERIAL_DATA);
+                    mAdapter.setSerial(position, serial);
                     Toast.makeText(getApplicationContext(), serial, Toast.LENGTH_LONG).show();
                 }
                 if (bundle.containsKey(BluetoothLeService.EXTRA_DATA)) {
@@ -491,6 +492,7 @@ public class Main2Activity extends AppCompatActivity {
             }
         }, 60000);
 
+        /*
         handler.post(new Runnable() {
             @Override
             public void run() {
@@ -526,7 +528,7 @@ public class Main2Activity extends AppCompatActivity {
                     handler.postDelayed(this, 10000);
                 }
             }
-        });
+        });*/
         final Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
 
@@ -539,9 +541,17 @@ public class Main2Activity extends AppCompatActivity {
             ScanResult res = (ScanResult) mAdapter.getItem(info.position);
             menu.setHeaderTitle(Objects.requireNonNull(res.getScanRecord()).getDeviceName());
             String[] menuItems = getResources().getStringArray(R.array.menu);
+
             boolean connection = mAdapter.getConnection(((AdapterView.AdapterContextMenuInfo) menuInfo).position);
             for (int i = 0; i<menuItems.length; i++) {
                 switch (i) {
+                    case 0:
+                    {
+                        if (mAdapter.getSerial(info.position) != null) {
+                            menu.add(Menu.NONE, i, i, menuItems[i]);
+                        }
+                        break;
+                    }
                     case 2:
                     {
                         if (connection) {
@@ -624,7 +634,7 @@ public class Main2Activity extends AppCompatActivity {
                 }
             });
 
-            new callingDialogAgain().execute();
+            new callingDialogAgain().execute(mAdapter.getSerial(position));
         }
         if (item.getItemId() == 1) {
             new getTableCount().execute();
@@ -704,12 +714,12 @@ public class Main2Activity extends AppCompatActivity {
         return super.onContextItemSelected(item);
     }
 
-    private List<itemWithDate> getTable() {
+    private List<itemWithDate> getTable(String serial) {
         Condition notNullCondition = new Condition()
                 .withComparisonOperator(ComparisonOperator.NOT_NULL);
         Map<String, Condition> keyConditions = new HashMap<>();
         keyConditions.put("date", notNullCondition);
-        keyConditions.put("priority", notNullCondition);
+        keyConditions.put("type", notNullCondition);
         keyConditions.put("event", notNullCondition);
 
         List<itemWithDate> withDateArrayList = new ArrayList<>();
@@ -717,7 +727,7 @@ public class Main2Activity extends AppCompatActivity {
 
         do {
             ScanRequest scanRequest = new ScanRequest()
-                    .withTableName("maglock-door1")
+                    .withTableName(serial)
                     .withExclusiveStartKey(lastEvaluatedKey)
                     .withScanFilter(keyConditions)
                     .withConsistentRead(true);
@@ -727,17 +737,17 @@ public class Main2Activity extends AppCompatActivity {
                 itemWithDate tempItem = new itemWithDate();
                 String event = item.get("event").getS();
                 String date = item.get("date").getS();
-                String priority = item.get("priority").getN();
+                String priority = item.get("type").getS();
 
-                String dateCut = date.substring(0, 19);
+                //String dateCut = date.substring(0,23);
                 Date date1;
-                String mili = date.substring(20);
-                int mili1;
+                //String mili = date.substring(20);
+                //int mili1;
                 try {
-                    date1 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).parse(dateCut);
-                    mili1 = Integer.parseInt(mili);
+                    date1 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()).parse(date);
+                    //mili1 = Integer.parseInt(mili);
                     tempItem.date = date1;
-                    tempItem.milis = mili1;
+                    //tempItem.milis = mili1;
                     tempItem.item = item;
                     withDateArrayList.add(tempItem);
                 } catch (ParseException e) {
@@ -758,11 +768,11 @@ public class Main2Activity extends AppCompatActivity {
                         return 0;
                     } else if (o1.date.before(o2.date)) {
                         return -1;
-                    } else if (o1.date.after(o2.date)) {
+                    } else /*if (o1.date.after(o2.date))*/ {
                         return 1;
-                    } else {
+                    } /*else {
                         return o1.milis.compareTo(o2.milis);
-                    }
+                    }*/
                 }
             });
             Collections.reverse(withDateArrayList);
@@ -1098,10 +1108,10 @@ public class Main2Activity extends AppCompatActivity {
     }
     class itemWithDate {
         Date date;
-        Integer milis;
+        //Integer milis;
         Map<String, AttributeValue> item;
     }
-
+/*
     public void callingDialog(View view) {
 
         dialog.setContentView(R.layout.popupwindow);
@@ -1159,15 +1169,16 @@ public class Main2Activity extends AppCompatActivity {
 
         dialog.show();
     }
+    */
     public void closeDialog(View view) {
         dialog.dismiss();
     }
-    class callingDialogAgain extends AsyncTask<Void, Void, Void> {
+    class callingDialogAgain extends AsyncTask<String, Void, Void> {
 
         @Override
-        protected Void doInBackground(Void... voids) {
-            //dialog.setContentView(R.layout.popupwindow);
-            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        protected Void doInBackground(String... strings) {
+            String serial = strings[0];
+            Objects.requireNonNull(dialog.getWindow()).setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
             textView = dialog.findViewById(R.id.testtextview);
             CardView cardView = dialog.findViewById(R.id.dialog);
             ViewGroup.LayoutParams params = cardView.getLayoutParams();
@@ -1184,19 +1195,22 @@ public class Main2Activity extends AppCompatActivity {
             scrollparams.height = textParams.height;
             scrollView.setLayoutParams(scrollparams);
             doorEventsList = new ArrayList<>();
-            doorEventsList = getTable();
+            Log.d(TAG, "Serial:" + serial);
+            doorEventsList = getTable(serial);
             StringBuilder builder = new StringBuilder();
             //int i = 1;
             for (itemWithDate withDate : doorEventsList) {
 
                 Calendar calendar = DateUtils.toCalendar(withDate.date);
 
+                //builder.append(withDate.date.toString()).append("\n");
                 builder.append(calendar.get(Calendar.DATE)).append("/");
                 builder.append(calendar.get(Calendar.MONTH)+1).append("/");
                 builder.append(calendar.get(Calendar.YEAR)).append(" ");
                 builder.append(calendar.get(Calendar.HOUR_OF_DAY)).append(":");
                 builder.append(calendar.get(Calendar.MINUTE)).append(":");
-                builder.append(calendar.get(Calendar.SECOND)).append("\n");
+                builder.append(calendar.get(Calendar.SECOND)).append(".");
+                builder.append(calendar.get(Calendar.MILLISECOND)).append("\n");
 
                 //builder.append(withDate.date).append("\n");
 
@@ -1218,6 +1232,7 @@ public class Main2Activity extends AppCompatActivity {
             dialog.show();
         }
     }
+    /*
     class getTableTask extends AsyncTask<Void, Void, Void> {
 
         @Override
@@ -1226,6 +1241,7 @@ public class Main2Activity extends AppCompatActivity {
             return null;
         }
     }
+    */
     class getTableCount extends AsyncTask<Void, Void, Long> {
         @Override
         protected Long doInBackground(Void... voids) {
@@ -1247,6 +1263,7 @@ public class Main2Activity extends AppCompatActivity {
             });
         }
     }
+    /*
     class getSingleTask extends AsyncTask<Void, Void, Void> {
 
         @Override
@@ -1318,15 +1335,15 @@ public class Main2Activity extends AppCompatActivity {
                         itemWithDate tempItem = new itemWithDate();
                         String date = item.get("date").getS();
 
-                        String dateString = date.substring(0, 19);
+                        String dateString = date.substring(0, 23);
                         Date date1;
-                        String mili = date.substring(20);
-                        int mili1;
+                        //String mili = date.substring(20);
+                        //int mili1;
                         try {
-                            date1 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).parse(dateString);
-                            mili1 = Integer.parseInt(mili);
+                            date1 = new SimpleDateFormat("yyyy-MM-ddTHH:mm:ss.SSS", Locale.getDefault()).parse(dateString);
+                            //mili1 = Integer.parseInt(mili);
                             tempItem.date = date1;
-                            tempItem.milis = mili1;
+                            //tempItem.milis = mili1;
                             tempItem.item = item;
                             withDateArrayList.add(tempItem);
                         } catch (ParseException e) {
@@ -1342,7 +1359,7 @@ public class Main2Activity extends AppCompatActivity {
 
             return null;
         }
-    }
+    }*/
     public static String ByteArrayToString(byte[] ba)
     {
         StringBuilder hex = new StringBuilder(ba.length * 2);
