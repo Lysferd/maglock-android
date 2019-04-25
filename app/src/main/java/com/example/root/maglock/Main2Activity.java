@@ -85,6 +85,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 
@@ -113,6 +114,8 @@ public class Main2Activity extends AppCompatActivity {
     private volatile boolean taskComplete = false;
     private boolean activeNet = false;
     private boolean itemClicked = false;
+    private boolean eventLog = false;
+    private boolean oneTimeClick = false;
 
     private AmazonDynamoDBAsyncClient dynamoDB;
 
@@ -246,6 +249,28 @@ public class Main2Activity extends AppCompatActivity {
                 else {
                     Log.d(TAG, bundle.toString());
                 }
+                if (eventLog) {
+                    mBluetoothLeService.readCharacteristic(mAdapter.getItem(position, gridItemAdapter.SERIAL), address);
+                    Log.d(TAG, "Connected to the device for eventLog");
+                }
+                if (oneTimeClick)
+                {
+                    BluetoothGattCharacteristic characteristic = mAdapter.getItem(position, gridItemAdapter.REQ);
+                    itemClicked = true;
+                    oneTimeClick = false;
+                    if (characteristic != null) {
+                        //byte[] data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0};
+                        String data = "1234567890";
+                        characteristic.setValue(data);
+                        mBluetoothLeService.writeCharacteristic(characteristic, address);
+                    } else {
+                        Toast.makeText(getApplicationContext(),
+                                "Error, the selected device does not have the needed characteristic," +
+                                        " disconnecting", Toast.LENGTH_LONG).show();
+                        mBluetoothLeService.disconnect(address);
+                    }
+                    mBluetoothLeService.disconnect();
+                }
             }
             if (BluetoothLeService.ACTION_DESCRIPTOR_WRITE.equals(action)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
@@ -297,7 +322,15 @@ public class Main2Activity extends AppCompatActivity {
                 if (bundle.containsKey(BluetoothLeService.SERIAL_DATA)) {
                     String serial = intent.getStringExtra(BluetoothLeService.SERIAL_DATA);
                     mAdapter.setSerial(position, serial);
-                    Toast.makeText(getApplicationContext(), serial, Toast.LENGTH_LONG).show();
+                    if (!eventLog) {
+                        Toast.makeText(getApplicationContext(), serial, Toast.LENGTH_LONG).show();
+                    } else {
+                        new callingDialogAgain().execute(mAdapter.getSerial(position));
+                        eventLog = false;
+                        mBluetoothLeService.disconnect();
+                        itemClicked = true;
+                    }
+
                 }
                 if (bundle.containsKey(BluetoothLeService.EXTRA_DATA)) {
                     Log.d(TAG, intent.getStringExtra(BluetoothLeService.EXTRA_DATA));
@@ -375,7 +408,7 @@ public class Main2Activity extends AppCompatActivity {
                 Log.d(TAG, "onItemClick position:" + position);
 
                 if (scanning) {
-                    button.performClick();
+                    button.callOnClick();
                 }
                 //stopScanning();
                 ScanResult scanResult = (ScanResult) mAdapter.getItem(position);
@@ -384,6 +417,7 @@ public class Main2Activity extends AppCompatActivity {
                     mBluetoothLeService.disconnect();
                     mBluetoothLeService.connect(address);
                     itemClicked = true;
+                    oneTimeClick = true;
                     /*
                      If the device is not connected(default), get the device address and connect
                      to it, then toogle the itemClicked flag(This will act when connection is done.
@@ -392,6 +426,7 @@ public class Main2Activity extends AppCompatActivity {
                 else {
                     mBluetoothLeService.disconnect(address);
                     itemClicked = true;
+                    oneTimeClick = false;
                 }
 
                 /*
@@ -543,13 +578,20 @@ public class Main2Activity extends AppCompatActivity {
             String[] menuItems = getResources().getStringArray(R.array.menu);
 
             boolean connection = mAdapter.getConnection(((AdapterView.AdapterContextMenuInfo) menuInfo).position);
+            int position = ((AdapterView.AdapterContextMenuInfo) menuInfo).position;
+            String address = ((ScanResult) mAdapter.getItem(((AdapterView.AdapterContextMenuInfo) menuInfo).position)).getDevice().getAddress();
+
+            Log.d(TAG, "CreateContextMenu");
+            if (!connection) {
+                Log.d(TAG, "Connect");
+                mBluetoothLeService.disconnect();
+                mBluetoothLeService.connect(address);
+            }
             for (int i = 0; i<menuItems.length; i++) {
                 switch (i) {
                     case 0:
                     {
-                        if (mAdapter.getSerial(info.position) != null) {
-                            menu.add(Menu.NONE, i, i, menuItems[i]);
-                        }
+                        menu.add(Menu.NONE, i, i, menuItems[i]);
                         break;
                     }
                     case 2:
@@ -633,8 +675,18 @@ public class Main2Activity extends AppCompatActivity {
                     Toast.makeText(getApplicationContext(), "Loading Event Log", Toast.LENGTH_SHORT).show();
                 }
             });
-
-            new callingDialogAgain().execute(mAdapter.getSerial(position));
+            if (mAdapter.getSerial(position) == null) {
+                eventLog = true;
+                if (!mAdapter.getConnection(position)) {
+                    mBluetoothLeService.disconnect();
+                    mBluetoothLeService.connect(address);
+                }
+                else {
+                    mBluetoothLeService.readCharacteristic(mAdapter.getItem(position, gridItemAdapter.SERIAL), address);
+                }
+            } else {
+                new callingDialogAgain().execute(mAdapter.getSerial(position));
+            }
         }
         if (item.getItemId() == 1) {
             new getTableCount().execute();
@@ -646,7 +698,8 @@ public class Main2Activity extends AppCompatActivity {
                 BluetoothGattCharacteristic characteristic = mAdapter.getItem(position, gridItemAdapter.REQ);
 
                 if (characteristic != null) {
-                    byte[] data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0};
+                    //byte[] data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0};
+                    String data = "1234567890";
                     characteristic.setValue(data);
                     mBluetoothLeService.writeCharacteristic(characteristic, address);
                 } else {
@@ -714,6 +767,15 @@ public class Main2Activity extends AppCompatActivity {
         return super.onContextItemSelected(item);
     }
 
+    @Override
+    public void onContextMenuClosed(Menu menu) {
+        if (!eventLog) {
+            itemClicked = true;
+            mBluetoothLeService.disconnect();
+        }
+        super.onContextMenuClosed(menu);
+    }
+
     private List<itemWithDate> getTable(String serial) {
         Condition notNullCondition = new Condition()
                 .withComparisonOperator(ComparisonOperator.NOT_NULL);
@@ -741,10 +803,13 @@ public class Main2Activity extends AppCompatActivity {
 
                 //String dateCut = date.substring(0,23);
                 Date date1;
+                SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault());
+                format.setTimeZone(TimeZone.getTimeZone("UTC"));
                 //String mili = date.substring(20);
                 //int mili1;
                 try {
-                    date1 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()).parse(date);
+                    date1 = format.parse(date);
+                    //Date date2 = new DateFormat().parse(date);
                     //mili1 = Integer.parseInt(mili);
                     tempItem.date = date1;
                     //tempItem.milis = mili1;
@@ -1199,6 +1264,7 @@ public class Main2Activity extends AppCompatActivity {
             doorEventsList = getTable(serial);
             StringBuilder builder = new StringBuilder();
             //int i = 1;
+
             for (itemWithDate withDate : doorEventsList) {
 
                 Calendar calendar = DateUtils.toCalendar(withDate.date);
