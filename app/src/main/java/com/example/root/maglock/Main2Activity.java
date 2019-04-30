@@ -108,6 +108,7 @@ public class Main2Activity extends AppCompatActivity {
     private Switch aSwitch;
     private Button button;
     private Handler handler;
+    private Button clearButton;
 
     private boolean scanning = false;
     private boolean stateChanged = false;
@@ -396,7 +397,28 @@ public class Main2Activity extends AppCompatActivity {
         registerForContextMenu(gridView);
         handler = new Handler();
         linearLayout = findViewById(R.id.linearLayoutMain2);
+        clearButton = findViewById(R.id.clear_button);
 
+        clearButton.setOnClickListener(clearListener);
+
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (!scanning) {
+                    progressBar.setVisibility(View.GONE);
+                    if (mAdapter.getCount()>0) {
+                        clearButton.setVisibility(View.VISIBLE);
+                    }
+                    else {
+                        clearButton.setVisibility(View.GONE);
+                    }
+                } else {
+                    progressBar.setVisibility(View.VISIBLE);
+                    clearButton.setVisibility(View.GONE);
+                }
+                handler.postDelayed(this, 500);
+            }
+        }, 500);
 
         /* Set the itemclickListener for the gridview, in this case, onclick means to send an open
          * request for the raspberrypie since if everything works correctly the service will keep an
@@ -407,6 +429,9 @@ public class Main2Activity extends AppCompatActivity {
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Log.d(TAG, "onItemClick position:" + position);
 
+                if (!mBluetoothAdapter.isEnabled()) {
+                    return;
+                }
                 if (scanning) {
                     button.callOnClick();
                 }
@@ -469,6 +494,9 @@ public class Main2Activity extends AppCompatActivity {
         aSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if (mBluetoothLeService != null) {
+                    mBluetoothLeService.disconnect();
+                }
                 if (!isChecked) {
                     if (progressBar.getVisibility() == View.VISIBLE) {
                         if (button.performClick()) {
@@ -476,15 +504,21 @@ public class Main2Activity extends AppCompatActivity {
                         }
                     }
                     mBluetoothAdapter.disable();
+                    mAdapter.setBluetooth(false);
                     button.setVisibility(View.INVISIBLE);
                     for (int i = 0; i < mAdapter.getCount(); i++) {
-                        mAdapter.setConnection(i, false);
+                        if (mAdapter.getConnection(i)) {
+                            mAdapter.setConnection(i, false);
+                        } else {
+                            mAdapter.setConnection(i, false, true);
+                        }
                         mAdapter.setStrikeNull(i);
                         mAdapter.setDoorNull(i);
                     }
                     mAdapter.notifyDataSetChanged();
                 } else {
                     mBluetoothAdapter.enable();
+                    mAdapter.setBluetooth(true);
                     button.setVisibility(View.VISIBLE);
                 }
             }
@@ -499,6 +533,7 @@ public class Main2Activity extends AppCompatActivity {
             if (mBluetoothAdapter != null ) {
                 // Is Bluetooth turned on?
                 if (mBluetoothAdapter.isEnabled()) {
+                    mAdapter.setBluetooth(true);
                     aSwitch.setChecked(true);
                 } else {
                     // Prompt user to turn on Bluetooth (logic continues in onActivityResult()).
@@ -568,6 +603,21 @@ public class Main2Activity extends AppCompatActivity {
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
 
     }
+
+    private View.OnClickListener clearListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            Log.d(TAG, "ClearListener called");
+            if (mBluetoothLeService != null) {
+                itemClicked = true;
+                mBluetoothLeService.disconnect();
+            }
+            if (mAdapter != null) {
+                mAdapter.clear();
+                mAdapter.notifyDataSetChanged();
+            }
+        }
+    };
 
     @Override
     public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {

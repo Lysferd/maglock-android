@@ -4,8 +4,10 @@ import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.le.ScanResult;
 import android.content.Context;
+import android.graphics.PorterDuff;
 import android.graphics.drawable.TransitionDrawable;
 import android.os.Handler;
+import android.support.v4.content.res.ResourcesCompat;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -34,6 +36,7 @@ public class gridItemAdapter extends BaseAdapter {
     private ArrayList<String> mSerial;
     private LayoutInflater mInflater;
     private Context mContext;
+    private boolean bluetooth;
 
     gridItemAdapter(Context context, LayoutInflater inflater) {
         super();
@@ -51,6 +54,7 @@ public class gridItemAdapter extends BaseAdapter {
         mSerialDescriptor = new ArrayList<>();
         mSerialList = new ArrayList<>();
         mSerial = new ArrayList<>();
+        bluetooth = false;
     }
 
     @Override
@@ -99,37 +103,42 @@ public class gridItemAdapter extends BaseAdapter {
         final int pos = position;
 
         Log.d(TAG, "transition:" + transition);
-        if (transition) {
-            imageView.setImageResource(R.drawable.outline_lock_white_48);
-            if (connected) {
-                Log.d(TAG, "Transition-connected");
-                transitionDrawable.startTransition(500);
-                Handler handler = new Handler();
-                handler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        mTransition.set(pos, false);
-                    }
-                }, 500);
+        if (bluetooth) {
+            transitionDrawable.clearColorFilter();
+            if (transition) {
+                imageView.setImageResource(R.drawable.outline_lock_white_48);
+                if (connected) {
+                    Log.d(TAG, "Transition-connected");
+                    transitionDrawable.startTransition(500);
+                    Handler handler = new Handler();
+                    handler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            mTransition.set(pos, false);
+                        }
+                    }, 500);
+
+                } else {
+                    Log.d(TAG, "Transition-not!connected");
+                    transitionDrawable.reverseTransition(300);
+                    Handler handler = new Handler();
+                    handler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            mTransition.set(pos, false);
+                        }
+                    }, 300);
+                    //mTransition.set(position, false);
+                }
 
             } else {
-                Log.d(TAG, "Transition-not!connected");
-                transitionDrawable.reverseTransition(300);
-                Handler handler = new Handler();
-                handler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        mTransition.set(pos, false);
-                    }
-                }, 300);
-                //mTransition.set(position, false);
+                if (!connected) {
+                    transitionDrawable.resetTransition();
+                }
             }
-
-        }
-        else {
-            if (!connected) {
-                transitionDrawable.resetTransition();
-            }
+        } else {
+            transitionDrawable.resetTransition();
+            transitionDrawable.setColorFilter(ResourcesCompat.getColor(parent.getResources(), R.color.colorGray, null), PorterDuff.Mode.SRC_IN);
         }
         if (connected && door!=null) {
             if (!door) {
@@ -410,5 +419,9 @@ public class gridItemAdapter extends BaseAdapter {
         mDoorStrikeList.clear();
         mDoorReqList.clear();
         mTransition.clear();
+    }
+    public void setBluetooth(boolean state) {
+        bluetooth = state;
+        this.notifyDataSetChanged();
     }
 }
