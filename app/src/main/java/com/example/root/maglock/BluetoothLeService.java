@@ -33,7 +33,7 @@ public class BluetoothLeService extends Service {
     private String mBluetoothDeviceAddress;
     private BluetoothGatt mBluetoothGatt;
 
-    private Map<String, BluetoothGatt> connectedDeviceMap;
+    private volatile Map<String, BluetoothGatt> connectedDeviceMap;
 
 
     private boolean descriptionWrite = false;
@@ -85,6 +85,8 @@ public class BluetoothLeService extends Service {
             "DEVICE_DATA";
     public final static String CHARACTERISTIC_TYPE =
             "CHARACTERISTIC_TYPE";
+    public final static String REQ_DONE =
+            "REQ_DONE";
 
     public final static UUID UUID_HEART_RATE_MEASUREMENT =
             UUID.fromString(SampleGattAttributes.HEART_RATE_MEASUREMENT);
@@ -217,7 +219,10 @@ public class BluetoothLeService extends Service {
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             Log.d(TAG, "CHARACTERISTICWRITE CALLED, STATUS" + status);
-            super.onCharacteristicWrite(gatt, characteristic, status);
+            BluetoothDevice device = gatt.getDevice();
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                broadcastUpdate(REQ_DONE, device);
+            }
         }
 
         @Override
@@ -706,9 +711,14 @@ public class BluetoothLeService extends Service {
      *                the correct BluetoothGatt from connectedDeviceMap
      */
     public void disconnect(String address) {
+        if (!connectedDeviceMap.containsKey(address)) {
+            Log.d(TAG, "Gatt not found, no disconnection needed.");
+            return;
+        }
         BluetoothGatt gatt = connectedDeviceMap.get(address);
         assert gatt != null;
         gatt.disconnect();
+        //gatt.close();
         connectedDeviceMap.remove(address);
     }
 

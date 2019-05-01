@@ -114,9 +114,13 @@ public class Main2Activity extends AppCompatActivity {
     private boolean stateChanged = false;
     private volatile boolean taskComplete = false;
     private boolean activeNet = false;
-    private boolean itemClicked = false;
     private boolean eventLog = false;
     private boolean oneTimeClick = false;
+    private boolean connecting = false;
+
+    private int attempts = 0;
+
+    private String connectAddress = "";
 
     private AmazonDynamoDBAsyncClient dynamoDB;
 
@@ -139,8 +143,9 @@ public class Main2Activity extends AppCompatActivity {
                 finish();
             } else {
                 Log.d(TAG, "Starting Bluetooth");
-                Toast.makeText(getApplicationContext(),
-                        "Bluetooth working, ready for connection", Toast.LENGTH_SHORT).show();
+                button.callOnClick();
+                //Toast.makeText(getApplicationContext(),
+                //        "Bluetooth working, ready for connection", Toast.LENGTH_SHORT).show();
                 //mBluetoothLeService.connect(mAddress);
                 //mConnecting = true;
             }
@@ -176,6 +181,12 @@ public class Main2Activity extends AppCompatActivity {
                     mBluetoothLeService.disconnect();
                 }
 
+            }
+            if (BluetoothLeService.REQ_DONE.equals(action)) {
+                Log.d(TAG, "REQ_DONE");
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
+                connectAddress = null;
+                mBluetoothLeService.disconnect(device.getAddress());
             }
             if (BluetoothLeService.ACTION_GATT_CONNECTED.equals(action)) {
                 /*
@@ -213,25 +224,34 @@ public class Main2Activity extends AppCompatActivity {
                 Log.d(TAG, "ACTION_GATT_DISCONNECTED");
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
                 String address = device.getAddress();
-                if (mAdapter.getCount() > 0) {
-                    int position = mAdapter.getPosition(address);
-                    if (!mAdapter.getConnection(position))
-                    {
-                        mAdapter.setConnection(position, false, true);
+                int position = mAdapter.getPosition(address);
+                if (address.equals(connectAddress)) {
+                    /* If the disconnected device address the connectAddress strings are equals
+                     * the disconnected device is the device that is attempting to connect, in this
+                     * case, that means it failed to connect and must be attempted again.
+                     * */
+                    if (attempts < 5) {
+                        attempts++;
+                        mBluetoothLeService.connect(address);
+                    } else {
+                        Toast.makeText(getApplicationContext(), "Could not connect to device.", Toast.LENGTH_LONG);
+                        attempts = 0;
+                        connectAddress = null;
+                        connecting = false;
                     }
-                    else {
+                } else {
+                    if (!mAdapter.getConnection(position)) {
+                        mAdapter.setConnection(position, false, true);
+                    } else {
+                        Toast.makeText(getApplicationContext(), "disconnected", Toast.LENGTH_SHORT).show();
                         mAdapter.setConnection(position, false);
                     }
                     mAdapter.notifyDataSetChanged();
-                    if (!itemClicked) {
-                        mBluetoothLeService.connect(address);
-                    } else {
-                        itemClicked = false;
-                    }
                 }
             }
             if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
                 Log.d(TAG, "ACTION_GATT_SERVICES_DISCOVERED");
+                connecting = false;
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
                 String address = device.getAddress();
                 int position = mAdapter.getPosition(address);
@@ -249,15 +269,22 @@ public class Main2Activity extends AppCompatActivity {
                 }
                 else {
                     Log.d(TAG, bundle.toString());
+                    connectAddress = null;
                 }
                 if (eventLog) {
-                    mBluetoothLeService.readCharacteristic(mAdapter.getItem(position, gridItemAdapter.SERIAL), address);
-                    Log.d(TAG, "Connected to the device for eventLog");
+                    if (mAdapter.getItem(position, gridItemAdapter.SERIAL) == null) {
+                        Toast.makeText(getApplicationContext(), "ERROR: No Serial Characteristic received, aborting.", Toast.LENGTH_LONG).show();
+                        eventLog = false;
+                        mBluetoothLeService.disconnect(address);
+                    } else {
+                        mBluetoothLeService.readCharacteristic(mAdapter.getItem(position, gridItemAdapter.SERIAL), address);
+                        Log.d(TAG, "Connected to the device for eventLog");
+                    }
                 }
                 if (oneTimeClick)
                 {
+                    connectAddress = null;
                     BluetoothGattCharacteristic characteristic = mAdapter.getItem(position, gridItemAdapter.REQ);
-                    itemClicked = true;
                     oneTimeClick = false;
                     if (characteristic != null) {
                         //byte[] data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0};
@@ -268,7 +295,7 @@ public class Main2Activity extends AppCompatActivity {
                         Toast.makeText(getApplicationContext(),
                                 "Error, the selected device does not have the needed characteristic," +
                                         " disconnecting", Toast.LENGTH_LONG).show();
-                        mBluetoothLeService.disconnect(address);
+                        //mBluetoothLeService.disconnect(address);
                     }
                     mBluetoothLeService.disconnect();
                 }
@@ -323,13 +350,15 @@ public class Main2Activity extends AppCompatActivity {
                 if (bundle.containsKey(BluetoothLeService.SERIAL_DATA)) {
                     String serial = intent.getStringExtra(BluetoothLeService.SERIAL_DATA);
                     mAdapter.setSerial(position, serial);
+                    Log.d(TAG, "SERIAL_DATA called.");
                     if (!eventLog) {
                         Toast.makeText(getApplicationContext(), serial, Toast.LENGTH_LONG).show();
                     } else {
                         new callingDialogAgain().execute(mAdapter.getSerial(position));
                         eventLog = false;
+                        connectAddress = null;
                         mBluetoothLeService.disconnect();
-                        itemClicked = true;
+
                     }
 
                 }
@@ -427,21 +456,28 @@ public class Main2Activity extends AppCompatActivity {
         gridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                if (connecting) {
+                    return;
+                }
+
                 Log.d(TAG, "onItemClick position:" + position);
 
                 if (!mBluetoothAdapter.isEnabled()) {
+                    connecting = false;
                     return;
                 }
+
                 if (scanning) {
                     button.callOnClick();
                 }
                 //stopScanning();
                 ScanResult scanResult = (ScanResult) mAdapter.getItem(position);
                 String address = scanResult.getDevice().getAddress();
-                if (!mAdapter.getConnection(position)) {
+                if (!mAdapter.getConnection(position) && mAdapter.getBluetooth() && !oneTimeClick) {
                     mBluetoothLeService.disconnect();
+                    connectAddress = address;
                     mBluetoothLeService.connect(address);
-                    itemClicked = true;
+                    connecting = true;
                     oneTimeClick = true;
                     /*
                      If the device is not connected(default), get the device address and connect
@@ -450,10 +486,8 @@ public class Main2Activity extends AppCompatActivity {
                 }
                 else {
                     mBluetoothLeService.disconnect(address);
-                    itemClicked = true;
                     oneTimeClick = false;
                 }
-
                 /*
                 if (mAdapter.getConnection(position)) {
                     BluetoothGattCharacteristic characteristic = mAdapter.getItem(position, gridItemAdapter.REQ);
@@ -495,6 +529,7 @@ public class Main2Activity extends AppCompatActivity {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 if (mBluetoothLeService != null) {
+                    connectAddress = null;
                     mBluetoothLeService.disconnect();
                 }
                 if (!isChecked) {
@@ -609,7 +644,7 @@ public class Main2Activity extends AppCompatActivity {
         public void onClick(View v) {
             Log.d(TAG, "ClearListener called");
             if (mBluetoothLeService != null) {
-                itemClicked = true;
+                connectAddress = null;
                 mBluetoothLeService.disconnect();
             }
             if (mAdapter != null) {
@@ -632,11 +667,13 @@ public class Main2Activity extends AppCompatActivity {
             String address = ((ScanResult) mAdapter.getItem(((AdapterView.AdapterContextMenuInfo) menuInfo).position)).getDevice().getAddress();
 
             Log.d(TAG, "CreateContextMenu");
-            if (!connection) {
-                Log.d(TAG, "Connect");
+            //if (!connection) {
+              //  Log.d(TAG, "Connect");
+                connectAddress = null;
                 mBluetoothLeService.disconnect();
-                mBluetoothLeService.connect(address);
-            }
+                //connectAddress = address;
+                //mBluetoothLeService.connect(address);
+            //}
             for (int i = 0; i<menuItems.length; i++) {
                 switch (i) {
                     case 0:
@@ -647,7 +684,7 @@ public class Main2Activity extends AppCompatActivity {
                     case 2:
                     {
                         if (connection) {
-                            menu.add(Menu.NONE, i, i, menuItems[i]);
+                            //menu.add(Menu.NONE, i, i, menuItems[i]);
                         }
                         break;
                     }
@@ -659,21 +696,21 @@ public class Main2Activity extends AppCompatActivity {
                     case 6:
                     {
                         if (connection) {
-                            menu.add(Menu.NONE, i, i, menuItems[i]);
+                            //menu.add(Menu.NONE, i, i, menuItems[i]);
                         }
                         break;
                     }
                     case 7:
                     {
                         if (connection) {
-                            menu.add(Menu.NONE, i, i, menuItems[i]);
+                            //menu.add(Menu.NONE, i, i, menuItems[i]);
                         }
                         break;
                     }
                     case 8:
                     {
                         if (connection) {
-                            menu.add(Menu.NONE, i, i, menuItems[i]);
+                            //menu.add(Menu.NONE, i, i, menuItems[i]);
                         }
                         break;
                     }
@@ -718,6 +755,16 @@ public class Main2Activity extends AppCompatActivity {
         String address = scanResult.getDevice().getAddress();
 
         if (item.getItemId() == 0) {
+            final ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            final NetworkInfo activeNetwork = connectivityManager.getActiveNetworkInfo();
+            activeNet = activeNetwork != null &&
+                    activeNetwork.isConnected();
+            Log.d(TAG, "ActiveNet:" + activeNet);
+
+            if (!activeNet) {
+                Toast.makeText(getApplicationContext(), "Could not retrieve history: No data connection available", Toast.LENGTH_LONG).show();
+                return false;
+            }
             Handler handler = new Handler();
             handler.post(new Runnable() {
                 @Override
@@ -725,18 +772,81 @@ public class Main2Activity extends AppCompatActivity {
                     Toast.makeText(getApplicationContext(), "Loading Event Log", Toast.LENGTH_SHORT).show();
                 }
             });
+
+            Log.d(TAG, "Position: " + position);
+
             if (mAdapter.getSerial(position) == null) {
+                // If there is not Serial already saved.
+                if (mAdapter.getItem(position, gridItemAdapter.SERIAL) == null) {
+                    // If there is no Characteristic saved that corresponds to the serial.
+                    if (!mAdapter.getConnection(position)) {
+                        // If there is no connection to the device.
+                        for (int i = 0; i < mAdapter.getCount(); i++) {
+                            // For every device in the adapter
+                            if (mAdapter.getConnection(i)) {
+                                // If the device is connected, disconnect it
+
+                                String mAddress = ((ScanResult) mAdapter.getItem(i)).getDevice().getAddress();
+                                mBluetoothLeService.disconnect(mAddress);
+                            }
+                        }
+                        // Then, declare eventLog action and attempt to connect.
+                        eventLog = true;
+                        connectAddress = address;
+                        mBluetoothLeService.connect(address);
+                    } else {
+                        // If the device is already connected, but was simply unable to acquire the characteristic.
+                        Toast.makeText(getApplicationContext(), "ERROR: For some reason, we were unable to acquire the Characteristic information from the device, aborting operation.", Toast.LENGTH_LONG).show();
+
+                        mBluetoothLeService.disconnect(address);
+                        return false;
+                    }
+                } else {
+                    // If there is a characteristic saved in the adapter list.
+                    if (!mAdapter.getConnection(position)) {
+                        // But the device is not connected.
+                        for (int i = 0; i < mAdapter.getCount(); i++) {
+                            // For every device in the list adapter
+                            if (mAdapter.getConnection(i)) {
+                                // If they are connected, disconnect
+
+                                String mAddress = ((ScanResult) mAdapter.getItem(i)).getDevice().getAddress();
+                                mBluetoothLeService.disconnect(mAddress);
+                            }
+                        }
+                        // Then, declare eventLog Action and attempt to connect.
+                        eventLog = true;
+                        connectAddress = address;
+                        mBluetoothLeService.connect(address);
+                    } else {
+                        // If the device is already connected. Declare eventLog and attempt to read Serial.
+                        eventLog = true;
+                        BluetoothGattCharacteristic characteristic = mAdapter.getItem(position, gridItemAdapter.SERIAL);
+                        mBluetoothLeService.readCharacteristic(characteristic, address);
+                        return false;
+                    }
+                }
+            } else {
+                // If there is already a saved serial.
+                String serial = mAdapter.getSerial(position);
+                new callingDialogAgain().execute(serial);
+                return false;
+            }/*
                 eventLog = true;
+                Log.d(TAG, "Serial null");
                 if (!mAdapter.getConnection(position)) {
+                    Log.d(TAG, "Connecting to the device");
                     mBluetoothLeService.disconnect();
                     mBluetoothLeService.connect(address);
                 }
                 else {
+                    Log.d(TAG, "Already connected to the device, reading Serial from " + position + ":" + mAdapter.getItem(position, gridItemAdapter.SERIAL));
                     mBluetoothLeService.readCharacteristic(mAdapter.getItem(position, gridItemAdapter.SERIAL), address);
                 }
             } else {
                 new callingDialogAgain().execute(mAdapter.getSerial(position));
             }
+            */
         }
         if (item.getItemId() == 1) {
             new getTableCount().execute();
@@ -766,6 +876,7 @@ public class Main2Activity extends AppCompatActivity {
         }
         if (item.getItemId() == 3)
         {
+            connectAddress = null;
             mBluetoothLeService.disconnect();
             mAdapter.clear();
             mAdapter.notifyDataSetChanged();
@@ -820,9 +931,11 @@ public class Main2Activity extends AppCompatActivity {
     @Override
     public void onContextMenuClosed(Menu menu) {
         if (!eventLog) {
-            itemClicked = true;
+            Log.d(TAG, "!EventLog");
+            connectAddress = null;
             mBluetoothLeService.disconnect();
         }
+        Log.d(TAG, "EventLog called");
         super.onContextMenuClosed(menu);
     }
 

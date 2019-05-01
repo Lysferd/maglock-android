@@ -108,7 +108,7 @@ public class gridItemAdapter extends BaseAdapter {
             if (transition) {
                 imageView.setImageResource(R.drawable.outline_lock_white_48);
                 if (connected) {
-                    Log.d(TAG, "Transition-connected");
+                    //Log.d(TAG, "Transition-connected");
                     transitionDrawable.startTransition(500);
                     Handler handler = new Handler();
                     handler.postDelayed(new Runnable() {
@@ -119,7 +119,7 @@ public class gridItemAdapter extends BaseAdapter {
                     }, 500);
 
                 } else {
-                    Log.d(TAG, "Transition-not!connected");
+                    //Log.d(TAG, "Transition-not!connected");
                     transitionDrawable.reverseTransition(300);
                     Handler handler = new Handler();
                     handler.postDelayed(new Runnable() {
@@ -419,9 +419,16 @@ public class gridItemAdapter extends BaseAdapter {
         mDoorStrikeList.clear();
         mDoorReqList.clear();
         mTransition.clear();
+        mSerial.clear();
+        mSerialList.clear();
+        mSerialDescriptor.clear();
     }
     public void setBluetooth(boolean state) {
         bluetooth = state;
         this.notifyDataSetChanged();
+    }
+
+    public boolean getBluetooth() {
+        return bluetooth;
     }
 }
