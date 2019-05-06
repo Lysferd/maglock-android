@@ -18,9 +18,7 @@ import android.os.IBinder;
 import android.support.annotation.RequiresApi;
 import android.util.Log;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import static android.bluetooth.BluetoothDevice.TRANSPORT_LE;
@@ -33,7 +31,7 @@ public class BluetoothLeService extends Service {
     private String mBluetoothDeviceAddress;
     private BluetoothGatt mBluetoothGatt;
 
-    private volatile Map<String, BluetoothGatt> connectedDeviceMap;
+    //private volatile Map<String, BluetoothGatt> connectedDeviceMap;
 
 
     private boolean descriptionWrite = false;
@@ -109,9 +107,12 @@ public class BluetoothLeService extends Service {
 
             if (newState == BluetoothProfile.STATE_CONNECTED) {
 
+                /*
                 if (!connectedDeviceMap.containsKey(address)) {
                     connectedDeviceMap.put(address, gatt);
                 }
+                */
+                mBluetoothGatt = gatt;
 
                 intentAction = ACTION_GATT_CONNECTED;
                 mConnectionState = STATE_CONNECTED;
@@ -124,6 +125,7 @@ public class BluetoothLeService extends Service {
 
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
 
+                /*
                 if (connectedDeviceMap.containsKey(address)){
                     BluetoothGatt bluetoothGatt = connectedDeviceMap.get(address);
                     if( bluetoothGatt != null ){
@@ -132,6 +134,9 @@ public class BluetoothLeService extends Service {
                     }
                     connectedDeviceMap.remove(address);
                 }
+                */
+                gatt.close();
+                mBluetoothGatt = null;
 
                 intentAction = ACTION_GATT_DISCONNECTED;
                 mConnectionState = STATE_DISCONNECTED;
@@ -220,9 +225,7 @@ public class BluetoothLeService extends Service {
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             Log.d(TAG, "CHARACTERISTICWRITE CALLED, STATUS" + status);
             BluetoothDevice device = gatt.getDevice();
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                broadcastUpdate(REQ_DONE, device);
-            }
+            broadcastUpdate(REQ_DONE, device);
         }
 
         @Override
@@ -532,19 +535,32 @@ public class BluetoothLeService extends Service {
     }
 
     public void writeCharacteristic(BluetoothGattCharacteristic characteristic, String address) {
+        if (mBluetoothGatt == null || mBluetoothAdapter == null) {
+            return;
+        }
+        mBluetoothGatt.writeCharacteristic(characteristic);
+
+        /*
         BluetoothGatt gatt = connectedDeviceMap.get(address);
         if (gatt == null || mBluetoothAdapter == null) {
             return;
         }
         gatt.writeCharacteristic(characteristic);
+        */
     }
 
     public boolean getConnectionState(String address) {
+        if (mBluetoothGatt == null || mBluetoothAdapter == null) {
+            return false;
+        }
+        return true;
+        /*
         BluetoothGatt gatt = connectedDeviceMap.get(address);
         if (gatt == null || mBluetoothAdapter == null) {
             return false;
         }
         return true;
+        */
     }
 
     public class LocalBinder extends Binder {
@@ -597,7 +613,7 @@ public class BluetoothLeService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        connectedDeviceMap = new HashMap<String, BluetoothGatt>();
+        //connectedDeviceMap = new HashMap<String, BluetoothGatt>();
         Log.d(TAG, "OnCreate Called, test SUCCESS");
     }
 
@@ -647,6 +663,11 @@ public class BluetoothLeService extends Service {
             Log.d(TAG, "connectGatt");
         }else if( connectionState == BluetoothProfile.STATE_CONNECTED ){
             // already connected . send Broadcast if needed
+            Log.d(TAG, "Already connected.");
+        } else if( connectionState == BluetoothProfile.STATE_CONNECTING) {
+            Log.d(TAG, "Already attempting connection");
+        } else if ( connectionState == BluetoothProfile.STATE_DISCONNECTING){
+            Log.d( TAG, "Attempting disconnection");
         }
 
 
@@ -689,11 +710,17 @@ public class BluetoothLeService extends Service {
      */
     public void disconnect() {
 
+        if (mBluetoothGatt == null || mBluetoothAdapter == null) {
+            return;
+        }
+        mBluetoothGatt.disconnect();
+        /*
         for (BluetoothGatt gatt : connectedDeviceMap.values()) {
             gatt.disconnect();
             //gatt.close();
             connectedDeviceMap.remove(gatt.getDevice().getAddress());
         }
+        */
         //connectedDeviceMap.clear();
         /*if (mBluetoothAdapter == null || mBluetoothGatt == null) {
             Log.w(TAG, "BluetoothAdapter not initialized");
@@ -711,6 +738,11 @@ public class BluetoothLeService extends Service {
      *                the correct BluetoothGatt from connectedDeviceMap
      */
     public void disconnect(String address) {
+        if (mBluetoothGatt == null || mBluetoothAdapter == null) {
+            return;
+        }
+        mBluetoothGatt.disconnect();
+        /*
         if (!connectedDeviceMap.containsKey(address)) {
             Log.d(TAG, "Gatt not found, no disconnection needed.");
             return;
@@ -720,6 +752,7 @@ public class BluetoothLeService extends Service {
         gatt.disconnect();
         //gatt.close();
         connectedDeviceMap.remove(address);
+        */
     }
 
     /**
@@ -742,11 +775,18 @@ public class BluetoothLeService extends Service {
      * @param characteristic The characteristic to read from.
      */
     public void readCharacteristic(BluetoothGattCharacteristic characteristic, String address) {
+
+        if (mBluetoothGatt == null || mBluetoothAdapter == null) {
+            return;
+        }
+        mBluetoothGatt.readCharacteristic(characteristic);
+        /*
         BluetoothGatt gatt = connectedDeviceMap.get(address);
         if (gatt == null || mBluetoothAdapter == null) {
             return;
         }
         gatt.readCharacteristic(characteristic);
+        */
 
         /*
         if (mBluetoothAdapter == null || mBluetoothGatt == null) {
@@ -773,6 +813,12 @@ public class BluetoothLeService extends Service {
         mBluetoothGatt.readDescriptor(descriptor);
     }
     public void readDescriptor(String address, BluetoothGattDescriptor descriptor) {
+        if (mBluetoothGatt == null || mBluetoothAdapter == null) {
+            Log.w(TAG, "BluetoothAdapter not initialized");
+            return;
+        }
+        mBluetoothGatt.readDescriptor(descriptor);
+        /*
         if (connectedDeviceMap.containsKey(address) && mBluetoothAdapter != null) {
             BluetoothGatt gatt = connectedDeviceMap.get(address);
             assert gatt != null;
@@ -782,6 +828,7 @@ public class BluetoothLeService extends Service {
             Log.w(TAG, "BluetoothAdapter not initialized");
             return;
         }
+        */
     }
 
     public void writeDescriptor(BluetoothGattDescriptor descriptor) {
@@ -828,10 +875,16 @@ public class BluetoothLeService extends Service {
      */
     public List<BluetoothGattService> getSupportedGattServices(String address) {
 
+        /*
         BluetoothGatt gatt = connectedDeviceMap.get(address);
         if (gatt == null) return null;
 
         return gatt.getServices();
+        */
+        if (mBluetoothGatt == null || mBluetoothAdapter == null) {
+            return null;
+        }
+        return mBluetoothGatt.getServices();
     }
 
     public void notifyHeart() {
@@ -844,6 +897,16 @@ public class BluetoothLeService extends Service {
     }
 
     public void setNotify(String address, BluetoothGattCharacteristic characteristic) {
+        if (mBluetoothGatt == null || mBluetoothAdapter == null) {
+            return;
+        }
+        mBluetoothGatt.setCharacteristicNotification(characteristic, true);
+        BluetoothGattDescriptor descriptor = characteristic.
+                getDescriptor(SampleGattAttributes.convertFromInteger(0x2902));
+        descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+        mBluetoothGatt.writeDescriptor(descriptor);
+
+        /*
         BluetoothGatt gatt = connectedDeviceMap.get(address);
         if (gatt==null) return;
 
@@ -852,5 +915,6 @@ public class BluetoothLeService extends Service {
                 getDescriptor(SampleGattAttributes.convertFromInteger(0x2902));
         descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
         gatt.writeDescriptor(descriptor);
+        */
     }
 }

@@ -182,12 +182,7 @@ public class Main2Activity extends AppCompatActivity {
                 }
 
             }
-            if (BluetoothLeService.REQ_DONE.equals(action)) {
-                Log.d(TAG, "REQ_DONE");
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
-                connectAddress = null;
-                mBluetoothLeService.disconnect(device.getAddress());
-            }
+
             if (BluetoothLeService.ACTION_GATT_CONNECTED.equals(action)) {
                 /*
                 if (!itemClicked) {
@@ -293,11 +288,16 @@ public class Main2Activity extends AppCompatActivity {
                         mBluetoothLeService.writeCharacteristic(characteristic, address);
                     } else {
                         Toast.makeText(getApplicationContext(),
-                                "Error, the selected device does not have the needed characteristic," +
+                                "Could not retrieve the needed characteristic," +
                                         " disconnecting", Toast.LENGTH_LONG).show();
-                        //mBluetoothLeService.disconnect(address);
+                        handler.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                mBluetoothLeService.disconnect();
+                            }
+                        }, 500);
                     }
-                    mBluetoothLeService.disconnect();
+                    //mBluetoothLeService.disconnect();
                 }
             }
             if (BluetoothLeService.ACTION_DESCRIPTOR_WRITE.equals(action)) {
@@ -363,8 +363,21 @@ public class Main2Activity extends AppCompatActivity {
 
                 }
                 if (bundle.containsKey(BluetoothLeService.EXTRA_DATA)) {
-                    Log.d(TAG, intent.getStringExtra(BluetoothLeService.EXTRA_DATA));
+                    Log.d(TAG, "extra:" + intent.getStringExtra(BluetoothLeService.EXTRA_DATA));
                 }
+            }
+
+            if (BluetoothLeService.REQ_DONE.equals(action)) {
+                Log.d(TAG, "REQ_DONE");
+                final BluetoothDevice device = intent.getParcelableExtra(BluetoothLeService.DEVICE_DATA);
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        connectAddress = null;
+                        mBluetoothLeService.disconnect(device.getAddress());
+                    }
+                }, 1500);
+
             }
         }
     };
@@ -1039,6 +1052,7 @@ public class Main2Activity extends AppCompatActivity {
         intentFilter.addAction(BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED);
         intentFilter.addAction(BluetoothLeService.ACTION_DESCRIPTOR_WRITE);
         intentFilter.addAction(BluetoothLeService.ACTION_DATA_AVAILABLE);
+        intentFilter.addAction(BluetoothLeService.REQ_DONE);
 
         return intentFilter;
     }
