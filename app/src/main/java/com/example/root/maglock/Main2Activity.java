@@ -649,7 +649,6 @@ public class Main2Activity extends AppCompatActivity {
         });*/
         final Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
-
     }
 
     private View.OnClickListener clearListener = new View.OnClickListener() {
@@ -666,6 +665,25 @@ public class Main2Activity extends AppCompatActivity {
             }
         }
     };
+
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (!aSwitch.isChecked()) {
+            return;
+        }
+        if (!hasFocus) {
+            if (scanning) {
+                button.callOnClick();
+            }
+            launchBackgroundService(getCurrentFocus());
+        }
+        else {
+            Intent intent = new Intent(getApplicationContext(), TestBluetoothService.class);
+            stopService(intent);
+        }
+    }
 
     @Override
     public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
@@ -1660,6 +1678,19 @@ public class Main2Activity extends AppCompatActivity {
 
         // ...
     }
+    private class startTestService extends AsyncTask<Context, Void, Void> {
+
+        @Override
+        protected Void doInBackground(Context... contexts) {
+            final Intent intent = new Intent(contexts[0], TestBluetoothService.class);
+            startService(intent);
+            return null;
+        }
+    }
+
+    public void launchBackgroundService(View view) {
+        new startTestService().execute(this);
+    }
 }
 
 class getIdentity extends AsyncTask<CognitoCachingCredentialsProvider, Void, String> {
@@ -1677,4 +1708,5 @@ class getIdentity extends AsyncTask<CognitoCachingCredentialsProvider, Void, Str
         else Log.d("Identity", "getIdentityId failed - return null");
     }
 }
+
 

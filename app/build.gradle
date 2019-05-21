@@ -4,7 +4,7 @@ android {
     compileSdkVersion 28
     defaultConfig {
         applicationId "com.example.root.maglock"
-        minSdkVersion 24
+        minSdkVersion 23
         targetSdkVersion 28
         versionCode 1
         versionName "1.0"
@@ -98,6 +98,8 @@ dependencies {
     implementation group: 'com.amazonaws', name: 'aws-android-sdk-cognitoidentityprovider', version: '2.12.1'
     // https://mvnrepository.com/artifact/com.amazonaws/aws-android-sdk-cognitoidentityprovider-asf
     implementation group: 'com.amazonaws', name: 'aws-android-sdk-cognitoidentityprovider-asf', version: '1.0.0'
+    implementation 'org.jetbrains:annotations-java5:15.0'
 
+    implementation "com.android.support:support-compat:28.0.0"
 
 }

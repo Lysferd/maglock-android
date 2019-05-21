@@ -49,4 +49,6 @@ In cursus, neque vitae fringilla fringilla, ipsum diam malesuada eros, vitae luc
 Phasellus in tempor felis, semper cursus arcu. Morbi feugiat vehicula nisl id tincidunt. Aenean euismod nisl sed tempus gravida. Morbi fringilla vehicula lectus, a malesuada sapien. Vestibulum sed leo venenatis, pellentesque arcu id, condimentum ante. Curabitur sit amet leo vel nulla euismod tempor et sit amet eros. Quisque commodo orci eget sapien congue faucibus. Aliquam mi sem, auctor nec blandit non, pulvinar ac enim. Proin ut laoreet purus, ac cursus felis. Sed tortor nulla, posuere in lacus quis, molestie ultrices elit. Pellentesque et aliquet nisi. Nunc erat ligula, posuere eu neque id, pharetra malesuada ex. Mauris maximus gravida nulla, et consequat elit auctor at. Curabitur finibus ullamcorper mauris, a vestibulum libero semper at. Aenean viverra porta sapien, fringilla commodo nulla cursus eget.
         Done!</string>
     <string name="event_log">Event Log</string>
+    <string name="channel_name">test_channel</string>
+    <string name="channel_description">A channel for testing purposes</string>
 </resources>
