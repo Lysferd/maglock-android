@@ -117,6 +117,7 @@ public class Main2Activity extends AppCompatActivity {
     private boolean eventLog = false;
     private boolean oneTimeClick = false;
     private boolean connecting = false;
+    private boolean clicked = false;
 
     private int attempts = 0;
 
@@ -666,7 +667,7 @@ public class Main2Activity extends AppCompatActivity {
         }
     };
 
-
+/*
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
@@ -684,7 +685,7 @@ public class Main2Activity extends AppCompatActivity {
             stopService(intent);
         }
     }
-
+*/
     @Override
     public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
         if (v.getId() == R.id.grid) {
@@ -1689,7 +1690,14 @@ public class Main2Activity extends AppCompatActivity {
     }
 
     public void launchBackgroundService(View view) {
-        new startTestService().execute(this);
+        if (!clicked) {
+            new startTestService().execute(this);
+            clicked = true;
+        } else {
+            final Intent intent = new Intent(this, TestBluetoothService.class);
+            stopService(intent);
+            clicked = false;
+        }
     }
 }
 

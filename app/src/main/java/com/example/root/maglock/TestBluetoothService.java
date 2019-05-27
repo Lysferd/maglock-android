@@ -1,10 +1,11 @@
 package com.example.root.maglock;
 
 import android.Manifest;
+import android.app.IntentService;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.app.Service;
+import android.arch.lifecycle.ProcessLifecycleOwner;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -23,6 +24,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.NotificationManagerCompat;
@@ -32,7 +34,9 @@ import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TestBluetoothService extends Service {
+public class TestBluetoothService extends IntentService {
+
+    private Handler backgroundHandler;
 
     private final static String TAG = "MagLock."+TestBluetoothService.class.getSimpleName();
     private static final String STATE_CONNECTING =
@@ -57,6 +61,17 @@ public class TestBluetoothService extends Service {
 
     private boolean scanning;
 
+    private int countDown = -1;
+
+    /**
+     * Creates an IntentService.  Invoked by your subclass's constructor.
+     *
+     * Used to name the worker thread, important only for debugging.
+     */
+    public TestBluetoothService() {
+        super("TestBluetoothService");
+    }
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         // return super.onStartCommand(intent, flags, startId);
@@ -75,6 +90,11 @@ public class TestBluetoothService extends Service {
     }
 
     @Override
+    protected void onHandleIntent(@androidx.annotation.Nullable Intent intent) {
+        Log.d(TAG, "onHandleIntent called.");
+    }
+
+    @Override
     public void onCreate() {
         mNotificationManager = NotificationManagerCompat.from(getApplicationContext());
         addressList = new ArrayList<>();
@@ -83,8 +103,9 @@ public class TestBluetoothService extends Service {
 
     @Override
     public void onDestroy() {
-        // super.onDestroy();
         Toast.makeText(this, "TestBluetoothService done.", Toast.LENGTH_SHORT).show();
+        backgroundHandler.removeCallbacksAndMessages(null);
+        super.onDestroy();
     }
     /**
      * Initializes a reference to the local Bluetooth adapter.
@@ -113,9 +134,44 @@ public class TestBluetoothService extends Service {
         if (mBluetoothLeScanner == null) {
             return false;
         }
-        startScanning();
+        backgroundHandler = new Handler();
+        backgroundHandler.post(backgroundCheckRun);
+        //startScanning();
         return true;
     }
+    private Runnable backgroundCheckRun = new Runnable() {
+        @Override
+        public void run() {
+            if (mBluetoothAdapter == null || mBluetoothLeScanner == null || !mBluetoothAdapter.isEnabled()) {
+                Log.d(TAG, "For some reason Bluetooth is not working(either turned OFF or BluetoothAdapter not initialized, attempting again in 10 seconds");
+                backgroundHandler.postDelayed(this, 10000);
+                return;
+            }
+            switch (ProcessLifecycleOwner.get().getLifecycle().getCurrentState()) {
+                case CREATED:{
+                    // On Background
+                    Log.d(TAG, "App is on background");
+                    if (!scanning && countDown < 0){
+                        Log.d(TAG, "Scanning for 2s");
+                        startScanning();
+                    }
+                    else if (countDown != -1) {
+                        Log.d(TAG, String.valueOf(countDown));
+                        countDown--;
+                    }
+                    break;
+                }
+                case STARTED:
+                    // On foreground.
+                case RESUMED:{
+                    // On Foreground.
+                    Log.d(TAG, "App is on foreground");
+                    break;
+                }
+            }
+            backgroundHandler.postDelayed(this, 1000);
+        }
+    };
 
     private final BluetoothGattCallback mBluetoothGattCallback = new BluetoothGattCallback() {
         @Override
@@ -204,6 +260,13 @@ public class TestBluetoothService extends Service {
             }
 
             mBluetoothLeScanner.startScan(buildScanFilters(), buildScanSettings(), mScanCallback);
+            Handler stopScan = new Handler();
+            stopScan.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    stopScanning();
+                }
+            }, 2000);
 
         } else {
             Toast.makeText(this, R.string.already_scanning, Toast.LENGTH_LONG).show();
@@ -219,6 +282,7 @@ public class TestBluetoothService extends Service {
         mBluetoothLeScanner.stopScan(mScanCallback);
         mScanCallback = null;
 
+        countDown = 10;
         // Even if no new results, update 'last seen' times.
     }
 
