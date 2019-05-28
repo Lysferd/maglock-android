@@ -26,6 +26,7 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
+import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.NotificationManagerCompat;
 import android.util.Log;
@@ -60,6 +61,7 @@ public class TestBluetoothService extends IntentService {
     private ArrayList<String> addressList;
 
     private boolean scanning;
+    private boolean registered = false;
 
     private int countDown = -1;
 
@@ -90,7 +92,7 @@ public class TestBluetoothService extends IntentService {
     }
 
     @Override
-    protected void onHandleIntent(@androidx.annotation.Nullable Intent intent) {
+    protected void onHandleIntent(@Nullable Intent intent) {
         Log.d(TAG, "onHandleIntent called.");
     }
 
@@ -105,6 +107,10 @@ public class TestBluetoothService extends IntentService {
     public void onDestroy() {
         Toast.makeText(this, "TestBluetoothService done.", Toast.LENGTH_SHORT).show();
         backgroundHandler.removeCallbacksAndMessages(null);
+        if (registered) {
+            unregisterReceiver(receiver);
+            registered = false;
+        }
         super.onDestroy();
     }
     /**
@@ -319,8 +325,6 @@ public class TestBluetoothService extends IntentService {
     };
     private class SampleScanCallback extends ScanCallback  {
 
-
-
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
 
@@ -341,9 +345,11 @@ public class TestBluetoothService extends IntentService {
             Intent dismiss = new Intent(DISMISSED_ACTION);
             dismiss.putExtra(ID_DATA, addressList.indexOf(address));
             PendingIntent pendingDismiss = PendingIntent.getBroadcast(getApplicationContext(), 0, dismiss, 0);
-            registerReceiver(receiver, new IntentFilter(DISMISSED_ACTION));
 
-
+            if (!registered) {
+                registerReceiver(receiver, new IntentFilter(DISMISSED_ACTION));
+                registered = true;
+            }
 
             NotificationCompat.Builder builder = new NotificationCompat.Builder(getApplicationContext(), "TEST_CHANNEL")
                     .setSmallIcon(R.drawable.outline_lock_24)
