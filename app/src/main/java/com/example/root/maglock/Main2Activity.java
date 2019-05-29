@@ -2,6 +2,7 @@ package com.example.root.maglock;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.bluetooth.BluetoothAdapter;
@@ -650,6 +651,22 @@ public class Main2Activity extends AppCompatActivity {
         });*/
         final Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
+
+        if (!isMyServiceRunning(TestBluetoothService.class)) {
+            final Intent intent = new Intent(this, TestBluetoothService.class);
+            startService(intent);
+        } else {
+            Log.d(TAG, "TestBluetoothService is already running.");
+        }
+        try {
+            final BootDeviceReceiver deviceReceiver = new BootDeviceReceiver();
+            final IntentFilter intentFilter = new IntentFilter(Intent.ACTION_BOOT_COMPLETED);
+            registerReceiver(deviceReceiver, intentFilter);
+            Log.d(TAG, "register successful");
+        }
+        catch (IllegalArgumentException e) {
+            Log.d(TAG, "could not register receiver:" + e);
+        }
     }
 
     private View.OnClickListener clearListener = new View.OnClickListener() {
@@ -686,6 +703,13 @@ public class Main2Activity extends AppCompatActivity {
         }
     }
 */
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unbindService(mServiceConnection);
+    }
+
     @Override
     public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
         if (v.getId() == R.id.grid) {
@@ -747,34 +771,6 @@ public class Main2Activity extends AppCompatActivity {
                         break;
                     }
                 }
-                /*
-                if (i == 2 ) {
-                    if (mAdapter.getConnection(((AdapterView.AdapterContextMenuInfo) menuInfo).position)) {
-                        menu.add(Menu.NONE, i, i, menuItems[i]);
-                    }
-                } else if (i == 4) {
-                    /*if (mAdapter.getConnection(((AdapterView.AdapterContextMenuInfo) menuInfo).position) &&
-                            !mAdapter.getStrike(((AdapterView.AdapterContextMenuInfo) menuInfo).position)) {
-                        menu.add(Menu.NONE, i, i, menuItems[i]);
-                    }
-                } else if (i == 5) {
-                    /*if (mAdapter.getConnection(((AdapterView.AdapterContextMenuInfo) menuInfo).position) &&
-                            mAdapter.getStrike(((AdapterView.AdapterContextMenuInfo) menuInfo).position)) {
-                        menu.add(Menu.NONE, i, i, menuItems[i]);
-                    }
-                } else if (i == 6) {
-                    if (mAdapter.getConnection(((AdapterView.AdapterContextMenuInfo) menuInfo).position)) {
-                        menu.add(Menu.NONE, i, i, menuItems[i]);
-                    }
-                } else if (i == 7) {
-                    if (mAdapter.getConnection(((AdapterView.AdapterContextMenuInfo) menuInfo).position)) {
-                        menu.add(Menu.NONE, i, i, menuItems[i]);
-                    }
-                }
-                else {
-                    menu.add(Menu.NONE, i, i, menuItems[i]);
-                }
-                */
             }
         }
     }
@@ -1683,8 +1679,12 @@ public class Main2Activity extends AppCompatActivity {
 
         @Override
         protected Void doInBackground(Context... contexts) {
-            final Intent intent = new Intent(contexts[0], TestBluetoothService.class);
-            startService(intent);
+            if (!isMyServiceRunning(TestBluetoothService.class)) {
+                final Intent intent = new Intent(contexts[0], TestBluetoothService.class);
+                startService(intent);
+            } else {
+                Log.d(TAG, "TestBluetoothDevice already running");
+            }
             return null;
         }
     }
@@ -1698,6 +1698,18 @@ public class Main2Activity extends AppCompatActivity {
             stopService(intent);
             clicked = false;
         }
+    }
+
+    public boolean isMyServiceRunning(Class<?> serviceClass) {
+        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        Log.d(TAG, "serviceClass name:" + serviceClass.getCanonicalName());
+        for (ActivityManager.RunningServiceInfo serviceInfo : manager.getRunningServices(Integer.MAX_VALUE)) {
+            Log.d(TAG+".servicelist", serviceInfo.service.getClassName());
+            if (serviceClass.getCanonicalName().equals(serviceInfo.service.getClassName())) {
+                return true;
+            }
+        }
+        return false;
     }
 }
 

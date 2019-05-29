@@ -26,19 +26,9 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme.NoActionBar">
         <receiver
-            android:name=".BootDeviceReceiver"
-            android:enabled="true"
-            android:exported="false">
+            android:name=".BootDeviceReceiver">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETE" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.PACKAGE_REPLACED" />
-                <data android:scheme="package" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.PACKAGE_ADDED" />
-                <data android:scheme="package" />
             </intent-filter>
         </receiver>
         <activity

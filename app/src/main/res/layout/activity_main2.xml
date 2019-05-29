@@ -42,7 +42,8 @@
                 android:layout_marginStart="5dp"
                 android:layout_marginBottom="28dp"
                 android:text="Button"
-                android:onClick="launchBackgroundService"/>
+                android:onClick="launchBackgroundService"
+                android:visibility="gone"/>
         </RelativeLayout>
     </ScrollView>
 
